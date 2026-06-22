@@ -56,11 +56,22 @@ def fetch_trello():
     lists = trello(
         f'/boards/{BOARD_ID}/lists',
         cards='open',
-        card_fields='name,dueComplete'
+        card_fields='name,dueComplete,due'
     )
     lmap = {l['name']: l for l in lists}
 
     week_start, week_end = get_week_range()
+
+    # Помощник: карточка попадает в эту неделю по дедлайну?
+    def due_this_week(card):
+        due = card.get('due')
+        if not due:
+            return False
+        try:
+            due_dt = datetime.fromisoformat(due.replace('Z', '+00:00')).replace(tzinfo=None)
+            return week_start <= due_dt <= week_end
+        except Exception:
+            return False
 
     team = {}
     for name, cfg in TEAM.items():
@@ -69,6 +80,7 @@ def fetch_trello():
         wc = wl.get('cards', [])
         bc = bl.get('cards', [])
 
+        # Статус по сотруднику — ВСЕ карточки в рабочей колонке
         done_cards   = [c for c in wc if c.get('dueComplete')]
         active_cards = [c for c in wc if not c.get('dueComplete')]
 
@@ -82,7 +94,15 @@ def fetch_trello():
             'backlog_count': len(bc),
         }
 
-    # Колонка "Неделя"
+    # Прогресс недели — только карточки с дедлайном НА ЭТУ НЕДЕЛЮ
+    week_work_cards = []
+    for name, cfg in TEAM.items():
+        wl = lmap.get(cfg['work'], {})
+        for c in wl.get('cards', []):
+            if due_this_week(c):
+                week_work_cards.append(c)
+
+    # Колонка "Неделя" — перенесённые завершённые
     week_done_cards = []
     week_list_name  = None
     for lname, ldata in lmap.items():
@@ -90,18 +110,17 @@ def fetch_trello():
             week_done_cards += ldata.get('cards', [])
             week_list_name = lname
 
-    total_planned = (
-        sum(d['total_work'] for d in team.values()) +
-        len(week_done_cards)
-    )
-    week_done_count = len(week_done_cards)
-    pct = int(week_done_count / total_planned * 100) if total_planned else 0
+    # Подсчёт прогресса
+    done_in_work    = [c for c in week_work_cards if c.get('dueComplete')]
+    week_done_count = len(done_in_work) + len(week_done_cards)
+    week_total      = len(week_work_cards) + len(week_done_cards)
+    pct = int(week_done_count / week_total * 100) if week_total else 0
 
     week = {
         'name':      f'{week_start.strftime("%d.%m")} — {week_end.strftime("%d.%m")}',
         'done':      week_done_count,
-        'planned':   total_planned,
-        'remain':    total_planned - week_done_count,
+        'planned':   week_total,
+        'remain':    week_total - week_done_count,
         'pct':       pct,
         'cards':     [c['name'] for c in week_done_cards],
         'list_name': week_list_name,

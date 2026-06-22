@@ -247,19 +247,28 @@
   </div>
   {% endif %}
 
-  <!-- Воронка -->
-  <div class="section-label">Распределение по воронке · Продажи</div>
-  <div class="funnel-box">
-    {% for stage in crm.funnel %}
+  <!-- Воронка по всем воронкам -->
+  <div class="section-label">Распределение по воронкам · все {{ crm.grand_total }} лидов</div>
+  {% for section in crm.funnel_sections %}
+  <div class="funnel-box" style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6366f1;">{{ section.pipeline }}</span>
+      <span style="font-size:12px;color:#475569;">{{ section.total }} лидов</span>
+    </div>
+    {% for stage in section.stages %}
     <div class="funnel-row">
-      <div class="funnel-label">{{ stage.name }}</div>
+      <div class="funnel-label" style="{% if stage.closed %}color:#334155;{% endif %}">{{ stage.name }}</div>
       <div class="funnel-bar-wrap">
-        <div class="funnel-bar" style="width:{{ stage.pct }}%"></div>
+        <div class="funnel-bar" style="width:{{ stage.pct }}%;{% if stage.closed %}background:linear-gradient(90deg,#1e293b,#334155);{% endif %}"></div>
       </div>
-      <div class="funnel-num">{{ stage.count }}</div>
+      <div class="funnel-num" style="{% if stage.closed %}color:#475569;{% endif %}">{{ stage.count }}</div>
     </div>
     {% endfor %}
   </div>
+  {% endfor %}
+  {% if crm.unknown_count %}
+  <div style="font-size:12px;color:#475569;padding:8px 0;">+ {{ crm.unknown_count }} лидов в неизвестных этапах</div>
+  {% endif %}
 
   {% endif %}
 {% else %}

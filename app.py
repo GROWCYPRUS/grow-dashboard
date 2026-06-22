@@ -20,21 +20,8 @@ TEAM = {
     'Люба':  {'work': 'Задачи Люба',    'backlog': None},
 }
 
-# Этапы воронки в нужном порядке
-AMO_STAGES = [
-    (64714326, 'Новая заявка'),
-    (62300030, 'Первичный контакт'),
-    (85067538, '3 касания без вовлечения'),
-    (83725106, 'Заполнил анкету / на МП'),
-    (83229010, 'Назначен созвон'),
-    (62300034, 'Проведён созвон'),
-    (86126246, 'Записан на МП'),
-    (63785746, 'Посетил МП'),
-    (63785750, 'Посетил 2-е МП'),
-    (69216118, 'Думает / завис'),
-    (63785754, 'Вступление / счёт'),
-]
-STAGE_IDS = {sid: name for sid, name in AMO_STAGES}
+# Системные статусы AmoCRM (закрытые сделки — есть в каждой воронке)
+AMO_CLOSED_STATUSES = {142: 'Успешно реализовано', 143: 'Закрыто и не реализовано'}
 
 def trello(path, **kw):
     r = requests.get(
@@ -141,6 +128,48 @@ def amo_get_all(path, **params):
             break
     return all_items
 
+def fetch_pipelines():
+    """Загружает все воронки и их этапы, возвращает карту status_id -> info"""
+    status_map = {}      # status_id -> {'name', 'pipeline_id', 'pipeline_name', 'sort'}
+    pipeline_list = []   # [(pipeline_id, pipeline_name, sort)]
+
+    page = 1
+    while True:
+        try:
+            data      = amo('/leads/pipelines', page=page, limit=250)
+            pipelines = data.get('_embedded', {}).get('pipelines', [])
+            if not pipelines:
+                break
+            for p in pipelines:
+                pid   = p['id']
+                pname = p['name']
+                psort = p.get('sort', 999)
+                pipeline_list.append((pid, pname, psort))
+                for s in p.get('_embedded', {}).get('statuses', []):
+                    status_map[s['id']] = {
+                        'name':          s['name'],
+                        'pipeline_id':   pid,
+                        'pipeline_name': pname,
+                        'sort':          s.get('sort', 999),
+                    }
+            if len(pipelines) < 250:
+                break
+            page += 1
+        except Exception:
+            break
+
+    # Добавляем системные статусы (закрытые), они не всегда приходят в списке
+    for sid, sname in AMO_CLOSED_STATUSES.items():
+        if sid not in status_map:
+            status_map[sid] = {
+                'name': sname, 'pipeline_id': None,
+                'pipeline_name': 'Системные', 'sort': 9999,
+            }
+
+    pipeline_list.sort(key=lambda x: x[2])
+    return status_map, pipeline_list
+
+
 def fetch_crm():
     if not AMO_TOKEN:
         return None
@@ -151,71 +180,85 @@ def fetch_crm():
         now_ts      = int(datetime.now().timestamp())
         month_start = int(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
 
-        # 1. Все активные лиды из главной воронки Продажи (постранично)
-        leads        = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
-        active_total = len(leads)
+        # 1. Загружаем карту всех этапов из AmoCRM
+        status_map, pipeline_list = fetch_pipelines()
 
-        # 2. Всего лидов по всем воронкам
+        # 2. Все лиды по всем воронкам
         all_leads   = amo_get_all('/leads')
         grand_total = len(all_leads)
 
-        # 3. Новые за текущий месяц (по всем воронкам)
+        # 3. Активные в воронке Продажи
+        active_total = sum(1 for l in all_leads if l.get('pipeline_id') == AMO_PIPELINE)
+
+        # 4. Новые за текущий месяц
         new_this_month = sum(
             1 for l in all_leads
             if l.get('created_at', 0) >= month_start
         )
 
-        # 4. Воронка — считаем по этапам
-        counts    = Counter(l['status_id'] for l in leads)
-        max_count = max(counts.values()) if counts else 1
-        funnel    = []
-        for sid, sname in AMO_STAGES:
-            cnt = counts.get(sid, 0)
-            if cnt > 0:
-                funnel.append({
-                    'name':  sname,
-                    'count': cnt,
-                    'pct':   int(cnt / max_count * 100),
+        # 5. Воронка — все лиды по всем воронкам, сгруппированные по этапам
+        counts_by_status = Counter(l['status_id'] for l in all_leads)
+
+        # Строим секции по воронкам
+        CLOSED = {142, 143}
+        funnel_sections = []
+        for pid, pname, _ in pipeline_list:
+            # Все статусы этой воронки с лидами
+            stages = []
+            for sid, info in sorted(
+                ((k, v) for k, v in status_map.items() if v['pipeline_id'] == pid),
+                key=lambda x: x[1]['sort']
+            ):
+                cnt = counts_by_status.get(sid, 0)
+                if cnt > 0:
+                    stages.append({'name': info['name'], 'count': cnt, 'closed': sid in CLOSED})
+            if stages:
+                max_cnt = max(s['count'] for s in stages)
+                for s in stages:
+                    s['pct'] = int(s['count'] / max_cnt * 100)
+                total_in_pipeline = sum(s['count'] for s in stages)
+                funnel_sections.append({
+                    'pipeline': pname,
+                    'stages':   stages,
+                    'total':    total_in_pipeline,
                 })
 
-        # 5. Зависшие лиды — группируем по этапу и считаем дни
-        CLOSED = {142, 143}
+        # Лиды с неизвестным статусом (если есть)
+        unknown_count = sum(
+            cnt for sid, cnt in counts_by_status.items()
+            if sid not in status_map
+        )
+
+        # 6. Зависшие лиды — по всем воронкам
         stuck_by_stage = defaultdict(list)
-        for l in leads:
+        for l in all_leads:
             if l['status_id'] in CLOSED:
                 continue
             days = (now_ts - l.get('updated_at', now_ts)) // 86400
             if days >= 7:
-                stage_name = STAGE_IDS.get(l['status_id'], 'Неизвестный этап')
+                info       = status_map.get(l['status_id'])
+                stage_name = info['name'] if info else f'Этап {l["status_id"]}'
                 stuck_by_stage[stage_name].append(days)
 
-        # Формируем саммари по зависшим
         stuck_summary = []
         total_stuck   = 0
         for stage_name, days_list in sorted(stuck_by_stage.items(), key=lambda x: -len(x[1])):
             cnt      = len(days_list)
             total_stuck += cnt
-            min_days = min(days_list)
-            max_days = max(days_list)
-            if min_days == max_days:
-                days_str = f'{min_days} дней'
-            else:
-                days_str = f'{min_days}–{max_days} дней'
-            stuck_summary.append({
-                'stage': stage_name,
-                'count': cnt,
-                'days':  days_str,
-            })
+            min_days, max_days = min(days_list), max(days_list)
+            days_str = f'{min_days} дней' if min_days == max_days else f'{min_days}–{max_days} дней'
+            stuck_summary.append({'stage': stage_name, 'count': cnt, 'days': days_str})
 
         return {
-            'grand_total':    grand_total,
-            'active_total':   active_total,
-            'new_month':      new_this_month,
-            'stuck_count':    total_stuck,
-            'stuck_summary':  stuck_summary,
-            'funnel':         funnel,
-            'month_name':     ['январе','феврале','марте','апреле','мае','июне',
-                               'июле','августе','сентябре','октябре','ноябре','декабре'][datetime.now().month-1],
+            'grand_total':     grand_total,
+            'active_total':    active_total,
+            'new_month':       new_this_month,
+            'stuck_count':     total_stuck,
+            'stuck_summary':   stuck_summary,
+            'funnel_sections': funnel_sections,
+            'unknown_count':   unknown_count,
+            'month_name':      ['январе','феврале','марте','апреле','мае','июне',
+                                'июле','августе','сентябре','октябре','ноябре','декабре'][datetime.now().month-1],
         }
     except Exception as e:
         return {'error': str(e)}

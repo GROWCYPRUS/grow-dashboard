@@ -229,7 +229,15 @@ def fetch_crm():
             if sid not in status_map
         )
 
-        # 6. Зависшие лиды — по всем воронкам
+        # 6. Зависшие лиды — только по релевантным этапам
+        # Исключаем архивные и технические этапы
+        STUCK_EXCLUDE = {
+            'перенесла в битрикс',
+            'архив',
+            'резидент',
+            '3 касания без вовлечения',
+        }
+
         stuck_by_stage = defaultdict(list)
         for l in all_leads:
             if l['status_id'] in CLOSED:
@@ -238,6 +246,8 @@ def fetch_crm():
             if days >= 7:
                 info       = status_map.get(l['status_id'])
                 stage_name = info['name'] if info else f'Этап {l["status_id"]}'
+                if stage_name.lower() in STUCK_EXCLUDE:
+                    continue
                 stuck_by_stage[stage_name].append(days)
 
         stuck_summary = []

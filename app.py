@@ -141,13 +141,32 @@ def fetch_crm():
         leads       = data.get('_embedded', {}).get('leads', [])
         active_total = data.get('_total_items', 0)
 
-        # 2. Всего лидов по всем воронкам (из /leads без фильтра)
-        all_data    = amo('/leads', limit=1)
-        grand_total = all_data.get('_total_items', 0)
+        # 2. Всего лидов по всем воронкам — суммируем по всем пайплайнам
+        pipelines_data = amo('/leads/pipelines')
+        pipeline_ids   = [
+            p['id'] for p in pipelines_data.get('_embedded', {}).get('pipelines', [])
+            if not p.get('is_archive', False)
+        ]
+        grand_total = 0
+        for pid in pipeline_ids:
+            try:
+                r = amo('/leads', **{'filter[pipeline_id]': pid, 'limit': 1})
+                grand_total += r.get('_total_items', 0)
+            except Exception:
+                pass
 
         # 3. Новые за текущий месяц (по всем воронкам)
-        new_data       = amo('/leads', **{'filter[created_at][from]': month_start, 'limit': 1})
-        new_this_month = new_data.get('_total_items', 0)
+        new_this_month = 0
+        for pid in pipeline_ids:
+            try:
+                r = amo('/leads', **{
+                    'filter[pipeline_id]': pid,
+                    'filter[created_at][from]': month_start,
+                    'limit': 1,
+                })
+                new_this_month += r.get('_total_items', 0)
+            except Exception:
+                pass
 
         # 4. Воронка — считаем по этапам
         counts    = Counter(l['status_id'] for l in leads)

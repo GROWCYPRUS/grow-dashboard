@@ -123,6 +123,24 @@ def fetch_trello():
     return team, week
 
 # ── AmoCRM ────────────────────────────────────────────────
+def amo_get_all(path, **params):
+    """Загружает все страницы из AmoCRM API"""
+    all_items = []
+    page = 1
+    while True:
+        try:
+            data  = amo(path, page=page, limit=250, **params)
+            items = data.get('_embedded', {}).get(path.strip('/').split('/')[-1], [])
+            if not items:
+                break
+            all_items.extend(items)
+            if len(items) < 250:
+                break
+            page += 1
+        except Exception:
+            break
+    return all_items
+
 def fetch_crm():
     if not AMO_TOKEN:
         return None
@@ -133,40 +151,19 @@ def fetch_crm():
         now_ts      = int(datetime.now().timestamp())
         month_start = int(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
 
-        # 1. Все активные лиды из главной воронки Продажи
-        data  = amo('/leads', **{
-            'filter[pipeline_id]': AMO_PIPELINE,
-            'limit': 250,
-        })
-        leads       = data.get('_embedded', {}).get('leads', [])
-        active_total = data.get('_total_items', 0)
+        # 1. Все активные лиды из главной воронки Продажи (постранично)
+        leads        = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
+        active_total = len(leads)
 
-        # 2. Всего лидов по всем воронкам — суммируем по всем пайплайнам
-        pipelines_data = amo('/leads/pipelines')
-        pipeline_ids   = [
-            p['id'] for p in pipelines_data.get('_embedded', {}).get('pipelines', [])
-            if not p.get('is_archive', False)
-        ]
-        grand_total = 0
-        for pid in pipeline_ids:
-            try:
-                r = amo('/leads', **{'filter[pipeline_id]': pid, 'limit': 1})
-                grand_total += r.get('_total_items', 0)
-            except Exception:
-                pass
+        # 2. Всего лидов по всем воронкам
+        all_leads   = amo_get_all('/leads')
+        grand_total = len(all_leads)
 
         # 3. Новые за текущий месяц (по всем воронкам)
-        new_this_month = 0
-        for pid in pipeline_ids:
-            try:
-                r = amo('/leads', **{
-                    'filter[pipeline_id]': pid,
-                    'filter[created_at][from]': month_start,
-                    'limit': 1,
-                })
-                new_this_month += r.get('_total_items', 0)
-            except Exception:
-                pass
+        new_this_month = sum(
+            1 for l in all_leads
+            if l.get('created_at', 0) >= month_start
+        )
 
         # 4. Воронка — считаем по этапам
         counts    = Counter(l['status_id'] for l in leads)
@@ -217,7 +214,8 @@ def fetch_crm():
             'stuck_count':    total_stuck,
             'stuck_summary':  stuck_summary,
             'funnel':         funnel,
-            'month_name':     datetime.now().strftime('%B').capitalize(),
+            'month_name':     ['январе','феврале','марте','апреле','мае','июне',
+                               'июле','августе','сентябре','октябре','ноябре','декабре'][datetime.now().month-1],
         }
     except Exception as e:
         return {'error': str(e)}

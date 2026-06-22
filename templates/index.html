@@ -210,29 +210,47 @@
   <div class="crm-error">⚠️ Ошибка загрузки CRM: {{ crm.error }}</div>
   {% else %}
 
+  <!-- KPI -->
   <div class="kpi-row">
     <div class="kpi">
-      <div class="kpi-label">Активных лидов</div>
-      <div class="kpi-value purple">{{ crm.active }}</div>
+      <div class="kpi-label">Всего лидов в CRM</div>
+      <div class="kpi-value white">{{ crm.grand_total }}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Новых в этом месяце</div>
+      <div class="kpi-label">Активных (воронка Продажи)</div>
+      <div class="kpi-value purple">{{ crm.active_total }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Новых в {{ crm.month_name }}</div>
       <div class="kpi-value green">{{ crm.new_month }}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Зависших (7+ дней)</div>
       <div class="kpi-value red">{{ crm.stuck_count }}</div>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">Всего в CRM</div>
-      <div class="kpi-value">{{ crm.total }}</div>
-    </div>
   </div>
 
-  <div class="section-label">Воронка · Продажи</div>
+  <!-- Зависшие -->
+  {% if crm.stuck_summary %}
+  <div class="section-label">Зависшие лиды</div>
+  <div class="funnel-box" style="margin-bottom:28px;">
+    {% for s in crm.stuck_summary %}
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #0f172a;">
+      <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+      <div style="font-size:13px;color:#fde68a;line-height:1.5;">
+        <strong>{{ s.count }} {{ 'лид' if s.count == 1 else ('лида' if s.count < 5 else 'лидов') }}</strong>
+        зависл{{ 'и' if s.count != 1 else '' }} на «{{ s.stage }}» —
+        {{ s.days }} без движения — нужен прозвон
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Воронка -->
+  <div class="section-label">Распределение по воронке · Продажи</div>
   <div class="funnel-box">
     {% for stage in crm.funnel %}
-    {% if stage.count > 0 %}
     <div class="funnel-row">
       <div class="funnel-label">{{ stage.name }}</div>
       <div class="funnel-bar-wrap">
@@ -240,7 +258,6 @@
       </div>
       <div class="funnel-num">{{ stage.count }}</div>
     </div>
-    {% endif %}
     {% endfor %}
   </div>
 

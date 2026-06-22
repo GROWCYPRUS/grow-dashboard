@@ -128,50 +128,77 @@ def fetch_crm():
         return None
 
     try:
-        # Получаем все активные лиды из воронки Продажи
+        from collections import Counter, defaultdict
+
+        now_ts      = int(datetime.now().timestamp())
+        month_start = int(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+
+        # 1. Все активные лиды из главной воронки Продажи
         data  = amo('/leads', **{
             'filter[pipeline_id]': AMO_PIPELINE,
             'limit': 250,
         })
-        leads = data.get('_embedded', {}).get('leads', [])
-        total = data.get('_total_items', 0)
+        leads       = data.get('_embedded', {}).get('leads', [])
+        active_total = data.get('_total_items', 0)
 
-        # Считаем по этапам
-        from collections import Counter
-        counts = Counter(l['status_id'] for l in leads)
+        # 2. Всего лидов по всем воронкам (из /leads без фильтра)
+        all_data    = amo('/leads', limit=1)
+        grand_total = all_data.get('_total_items', 0)
 
-        # Строим воронку
-        funnel = []
+        # 3. Новые за текущий месяц (по всем воронкам)
+        new_data       = amo('/leads', **{'filter[created_at][from]': month_start, 'limit': 1})
+        new_this_month = new_data.get('_total_items', 0)
+
+        # 4. Воронка — считаем по этапам
+        counts    = Counter(l['status_id'] for l in leads)
         max_count = max(counts.values()) if counts else 1
+        funnel    = []
         for sid, sname in AMO_STAGES:
             cnt = counts.get(sid, 0)
-            funnel.append({
-                'name':  sname,
+            if cnt > 0:
+                funnel.append({
+                    'name':  sname,
+                    'count': cnt,
+                    'pct':   int(cnt / max_count * 100),
+                })
+
+        # 5. Зависшие лиды — группируем по этапу и считаем дни
+        CLOSED = {142, 143}
+        stuck_by_stage = defaultdict(list)
+        for l in leads:
+            if l['status_id'] in CLOSED:
+                continue
+            days = (now_ts - l.get('updated_at', now_ts)) // 86400
+            if days >= 7:
+                stage_name = STAGE_IDS.get(l['status_id'], 'Неизвестный этап')
+                stuck_by_stage[stage_name].append(days)
+
+        # Формируем саммари по зависшим
+        stuck_summary = []
+        total_stuck   = 0
+        for stage_name, days_list in sorted(stuck_by_stage.items(), key=lambda x: -len(x[1])):
+            cnt      = len(days_list)
+            total_stuck += cnt
+            min_days = min(days_list)
+            max_days = max(days_list)
+            if min_days == max_days:
+                days_str = f'{min_days} дней'
+            else:
+                days_str = f'{min_days}–{max_days} дней'
+            stuck_summary.append({
+                'stage': stage_name,
                 'count': cnt,
-                'pct':   int(cnt / max_count * 100) if max_count else 0,
+                'days':  days_str,
             })
 
-        # Зависшие лиды (более 7 дней без изменений)
-        week_ago = int((datetime.now() - timedelta(days=7)).timestamp())
-        stuck = [
-            l for l in leads
-            if l.get('updated_at', 0) < week_ago
-            and l['status_id'] not in (143, 142)  # не закрытые
-        ]
-
-        # Новые лиды за текущий месяц
-        month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0)
-        new_this_month = [
-            l for l in leads
-            if l.get('created_at', 0) >= int(month_start.timestamp())
-        ]
-
         return {
-            'total':          total,
-            'active':         len(leads),
-            'new_month':      len(new_this_month),
-            'stuck_count':    len(stuck),
+            'grand_total':    grand_total,
+            'active_total':   active_total,
+            'new_month':      new_this_month,
+            'stuck_count':    total_stuck,
+            'stuck_summary':  stuck_summary,
             'funnel':         funnel,
+            'month_name':     datetime.now().strftime('%B').capitalize(),
         }
     except Exception as e:
         return {'error': str(e)}

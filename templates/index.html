@@ -122,10 +122,8 @@
 <div class="card">
   <div class="card-top">
     <span class="card-name">{{ name }}</span>
-    {% if d.work_count or d.backlog_count %}
-    <span class="card-stat">
-      <b class="p">{{ d.work_count }}</b> / {{ d.work_count + d.backlog_count }}
-    </span>
+    {% if d.backlog_count %}
+    <span class="card-stat">{{ d.backlog_count }} задач</span>
     {% endif %}
   </div>
   {% if d.backlog %}

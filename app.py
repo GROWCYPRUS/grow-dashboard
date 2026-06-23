@@ -412,7 +412,7 @@ def fetch_residents():
             'total':          total,
             'status_counts':  dict(status_counts),
             'birthdays_week': birthdays_week,
-            'paying':         paying_now,
+            'paying':         fmt(total_paying),
             'paid_ok':        fmt(total_paid_ok),
             'not_paid':       fmt(total_paying - total_paid_ok),
             'current_q':      current_q,

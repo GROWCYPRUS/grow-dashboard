@@ -14,6 +14,14 @@ AMO_DOMAIN   = 'infogrowbccom.amocrm.ru'
 AMO_PIPELINE = 7514314  # Продажи
 
 RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
+PAYMENTS_SHEET_ID  = '1h4zh7mFTKyfGUWOsyk1us9EfP379qd2P'
+PAYMENTS_GID       = '1169641494'
+
+MEMBERSHIP_WEIGHTS = {
+    'Резидент':          1.0,
+    '1/2 Резидент':      0.5,
+    '1/2 Резидент Women': 0.5,
+}
 
 TEAM = {
     'Даша':  {'work': 'Задачи Даша',    'backlog': 'Backlog_Даша'},
@@ -281,11 +289,16 @@ def fetch_crm():
         return {'error': str(e)}
 
 # ── Residents ─────────────────────────────────────────────
-def fetch_gsheet_csv(sheet_id, sheet_name):
+def fetch_gsheet_csv(sheet_id, sheet_name=None, gid=None):
     import csv, io
+    params = {'tqx': 'out:csv'}
+    if sheet_name:
+        params['sheet'] = sheet_name
+    if gid:
+        params['gid'] = gid
     r = requests.get(
         f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq',
-        params={'tqx': 'out:csv', 'sheet': sheet_name},
+        params=params,
         timeout=15
     )
     r.raise_for_status()
@@ -347,10 +360,38 @@ def fetch_residents():
 
         birthdays_week.sort(key=lambda x: x['day'])
 
+        # ── Платящие резиденты (из таблицы оплат) ──
+        pay_rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, gid=PAYMENTS_GID)
+
+        total_paying  = 0.0
+        total_paid_ok = 0.0
+
+        for row in pay_rows:
+            status     = row.get('Статус', '').strip()
+            membership = row.get('Членство', '').strip()
+            pay_status = row.get('Статус оплаты', '').strip().upper()
+
+            if status != 'Active':
+                continue
+
+            weight = MEMBERSHIP_WEIGHTS.get(membership, 0)
+            if weight == 0:
+                continue
+
+            total_paying += weight
+            if pay_status == 'OK':
+                total_paid_ok += weight
+
+        def fmt(n):
+            return int(n) if n == int(n) else n
+
         return {
             'total':          total,
             'status_counts':  dict(status_counts),
             'birthdays_week': birthdays_week,
+            'paying':         fmt(total_paying),
+            'paid_ok':        fmt(total_paid_ok),
+            'not_paid':       fmt(total_paying - total_paid_ok),
         }
     except Exception as e:
         return {'error': str(e)}

@@ -282,6 +282,23 @@
   <div class="crm-error">⚠️ Ошибка загрузки: {{ residents.error }}</div>
   {% else %}
 
+  <!-- Платящие -->
+  <div class="section-label">Оплата · текущий период</div>
+  <div class="kpi-row" style="margin-bottom:28px;">
+    <div class="kpi">
+      <div class="kpi-label">Всего платящих</div>
+      <div class="kpi-value purple">{{ residents.paying }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Оплатили ✓</div>
+      <div class="kpi-value green">{{ residents.paid_ok }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Не оплатили</div>
+      <div class="kpi-value red">{{ residents.not_paid }}</div>
+    </div>
+  </div>
+
   <!-- Главная цифра + статусы -->
   <div class="section-label">Состав клуба</div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:28px;">

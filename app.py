@@ -440,76 +440,142 @@ def fetch_residents():
         return {'error': str(e)}
 
 # ── Attendance ────────────────────────────────────────────
+# Ключевые слова для исключения вкладок (падел, форум-группы)
+ATT_SKIP_KEYWORDS = ['падел', 'форум-группа', ' фг', 'образец', 'сводная']
+
 def fetch_attendance():
     try:
-        import csv as _csv, io
+        import io as _io
+        import csv as _csv
+        import openpyxl
         from collections import defaultdict
 
-        def raw_csv(sheet_id, gid):
-            r = requests.get(
-                f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq',
-                params={'tqx': 'out:csv', 'gid': gid}, timeout=15
-            )
-            r.raise_for_status()
-            return list(_csv.reader(io.StringIO(r.text)))
-
-        # Текущий и предыдущий месяц
         today           = datetime.now()
         curr_month_name = MONTH_NAMES_RU[today.month - 1]
         prev_month_name = MONTH_NAMES_RU[today.month - 2] if today.month > 1 else None
 
-        def load_summary(month_name):
-            info = ATTENDANCE_SHEETS.get(month_name)
-            if not info:
-                return {}
-            rows = fetch_gsheet_csv(info['id'], gid=info['gid'])
-            result = {}
-            for row in rows:
-                name = row.get('ФИО', '').strip()
-                if not name:
-                    continue
-                try:
-                    presence = int(row.get('Присутствие', '0') or 0)
-                except (ValueError, TypeError):
-                    presence = 0
-                result[name] = {
-                    'presence': presence,
-                    'tariff':   row.get('Тариф', '').strip(),
-                }
-            return result
+        sheet_info = ATTENDANCE_SHEETS.get(curr_month_name)
+        if not sheet_info:
+            return {'error': f'Нет данных для {curr_month_name}'}
 
-        curr_data = load_summary(curr_month_name)
-        prev_data = load_summary(prev_month_name) if prev_month_name else {}
+        # ── 1. Скачиваем XLSX текущего месяца ──────────────────
+        xlsx_r = requests.get(
+            f'https://docs.google.com/spreadsheets/d/{sheet_info["id"]}/export?format=xlsx',
+            timeout=30
+        )
+        xlsx_r.raise_for_status()
+        wb = openpyxl.load_workbook(_io.BytesIO(xlsx_r.content), read_only=True, data_only=True)
 
-        # Вышедшие из основной таблицы
+        # ── 2. Парсим каждый ивент ─────────────────────────────
+        # Основной список резидентов (для % от общего)
         res_rows   = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Резиденты')
         status_col = next((k for k in (res_rows[0].keys() if res_rows else []) if 'статус' in k.lower()), None)
         name_col   = next((k for k in (res_rows[0].keys() if res_rows else []) if 'имя' in k.lower() or 'фамили' in k.lower()), None)
-        exited     = {r.get(name_col,'').strip() for r in res_rows if r.get(status_col,'').strip() == 'Вышел'}
-        exited_count = len(exited)
 
-        # Статус каждого резидента
-        all_names     = set(curr_data) | set(prev_data)
+        active_res_names = {r.get(name_col,'').strip() for r in res_rows
+                            if r.get(status_col,'').strip() != 'Вышел' and r.get(name_col,'').strip()}
+        total_residents  = len(active_res_names)
+
+        events        = []
+        no_show_count = defaultdict(int)   # имя → сколько раз зарегился и не пришёл
+
+        for shname in wb.sheetnames:
+            low = shname.lower()
+            if any(kw in low for kw in ATT_SKIP_KEYWORDS):
+                continue
+
+            ws   = wb[shname]
+            rows = list(ws.iter_rows(values_only=True))
+            if len(rows) < 2:
+                continue
+
+            header = [str(c).strip().lower() if c else '' for c in rows[0]]
+            try:
+                reg_idx  = next(i for i,h in enumerate(header) if 'регистрация' in h)
+                pres_idx = next(i for i,h in enumerate(header) if 'присутствие' in h)
+            except StopIteration:
+                continue
+
+            registered = 0
+            attended   = 0
+
+            for row in rows[1:]:
+                if not row or not row[0]:
+                    continue
+                name_val = str(row[0]).strip()
+                reg_val  = str(row[reg_idx]).strip()  if row[reg_idx]  else ''
+                pres_val = str(row[pres_idx]).strip() if row[pres_idx] else ''
+
+                if reg_val in ('Да', 'Возможно'):
+                    registered += 1
+                    if pres_val != 'Да':
+                        no_show_count[name_val] += 1
+                if pres_val == 'Да':
+                    attended += 1
+
+            # Показываем только прошедшие ивенты (есть хоть кто-то зарегистрировался)
+            if registered == 0:
+                continue
+
+            pct_of_total = round(attended / total_residents * 100) if total_residents else 0
+            pct_of_reg   = round(attended / registered * 100) if registered else 0
+
+            events.append({
+                'name':          shname,
+                'registered':    registered,
+                'attended':      attended,
+                'pct_total':     pct_of_total,
+                'pct_reg':       pct_of_reg,
+            })
+
+        # Топ-5 «зарегистрировался и не пришёл»
+        top_noshows = sorted(
+            [{'name': n, 'count': c} for n, c in no_show_count.items() if c > 0],
+            key=lambda x: -x['count']
+        )[:5]
+
+        # Средняя явка и лучший ивент (только у ивентов с посещаемостью)
+        done_events = [e for e in events if e['attended'] > 0]
+        avg_pct     = round(sum(e['pct_reg'] for e in done_events) / len(done_events)) if done_events else 0
+        top_event   = max(done_events, key=lambda x: x['pct_reg'])['name'].split(' ', 1)[1] if done_events else '—'
+
+        # ── 3. Статус резидентов из Сводной ───────────────────
+        summary_rows = fetch_gsheet_csv(sheet_info['id'], gid=sheet_info['gid'])
+        monthly_data = {}
+        for row in summary_rows:
+            n = row.get('ФИО','').strip()
+            if not n:
+                continue
+            try:
+                p = int(row.get('Присутствие','0') or 0)
+            except (ValueError, TypeError):
+                p = 0
+            monthly_data[n] = {
+                'presence': p,
+                'tariff':   row.get('Тариф','').strip(),
+            }
+
+        # Предыдущий месяц (только для определения «Новый»)
+        prev_info = ATTENDANCE_SHEETS.get(prev_month_name) if prev_month_name else None
+        prev_names = set()
+        if prev_info:
+            prev_rows = fetch_gsheet_csv(prev_info['id'], gid=prev_info['gid'])
+            prev_names = {r.get('ФИО','').strip() for r in prev_rows if r.get('ФИО','').strip()}
+
+        # Статус строится по основному списку резидентов (исключаем Вышедших)
         status_counts = defaultdict(int)
         residents_out = []
 
-        for name in sorted(all_names):
-            if not name:
+        for name in sorted(active_res_names):
+            data   = monthly_data.get(name, {})
+            tariff = data.get('tariff', '') or 'Резидент'
+            if tariff == 'Deactive':
                 continue
-            curr   = curr_data.get(name, {})
-            prev   = prev_data.get(name, {})
-            tariff = (curr.get('tariff') or prev.get('tariff') or '').strip()
-
-            if tariff == 'Deactive' or name in exited:
-                continue   # Вышедших считаем отдельно из основной таблицы
-
-            p_curr = curr.get('presence', 0)
-            p_prev = prev.get('presence', 0)
-            total  = p_curr + p_prev
+            p_curr = data.get('presence', 0)
 
             if tariff == 'Амбассадор':
                 status = 'Амбассадор'
-            elif name not in prev_data:
+            elif name not in prev_names:
                 status = 'Новый'
             elif p_curr >= 3:
                 status = 'Активный'
@@ -523,33 +589,30 @@ def fetch_attendance():
                 'name':   name,
                 'tariff': tariff,
                 'p_curr': p_curr,
-                'p_prev': p_prev,
-                'total':  total,
                 'status': status,
             })
 
-        status_counts['Вышел'] = exited_count
+        STATUS_ORDER = {'Активный':0,'Выпал':1,'Под риском':2,'Новый':3,'Амбассадор':4}
+        residents_out.sort(key=lambda x: (STATUS_ORDER.get(x['status'],9), x['name']))
 
-        STATUS_ORDER = {'Активный':0,'Выпал':1,'Под риском':2,'Новый':3,'Амбассадор':4,'Вышел':5}
-        residents_out.sort(key=lambda x: (STATUS_ORDER.get(x['status'], 9), x['name']))
+        # ── 4. Годовая статистика ──────────────────────────────
+        def raw_csv(sheet_id, gid):
+            r = requests.get(
+                f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq',
+                params={'tqx': 'out:csv', 'gid': gid}, timeout=15
+            )
+            r.raise_for_status()
+            return list(_csv.reader(_io.StringIO(r.text)))
 
-        # Агрегат текущего месяца (без Амбассадоров)
-        tracked       = [r for r in residents_out if r['status'] != 'Амбассадор']
-        total_tracked = len(tracked)
-        attended_any  = sum(1 for r in tracked if r['p_curr'] > 0)
-        total_att     = sum(r['p_curr'] for r in tracked)
-        avg_att       = round(total_att / total_tracked, 1) if total_tracked else 0
-
-        # Годовая статистика (raw CSV, у файла нет нормального заголовка ФИО)
-        annual_rows      = raw_csv(ANNUAL_SHEET_ID, ANNUAL_GID)
-        annual_total_reg = annual_total_conf = annual_total_pres = 0
+        annual_rows = raw_csv(ANNUAL_SHEET_ID, ANNUAL_GID)
+        ann_reg = ann_conf = ann_pres = 0
         annual_top = []
 
-        for row in annual_rows[1:]:   # пропускаем заголовок
+        for row in annual_rows[1:]:
             if len(row) < 5:
                 continue
-            name_val = row[1].strip()
-            if not name_val:
+            n = row[1].strip()
+            if not n:
                 continue
             try:
                 reg  = int(row[2]) if row[2].strip() else 0
@@ -557,30 +620,33 @@ def fetch_attendance():
                 pres = int(row[4]) if row[4].strip() else 0
             except (ValueError, IndexError):
                 continue
-            annual_total_reg  += reg
-            annual_total_conf += conf
-            annual_total_pres += pres
+            ann_reg  += reg
+            ann_conf += conf
+            ann_pres += pres
             if pres > 0:
-                annual_top.append({'name': name_val, 'reg': reg, 'conf': conf, 'pres': pres})
+                annual_top.append({'name': n, 'reg': reg, 'conf': conf, 'pres': pres})
 
         annual_top.sort(key=lambda x: -x['pres'])
 
         return {
-            'curr_month':    curr_month_name,
-            'prev_month':    prev_month_name or '—',
-            'status_counts': dict(status_counts),
-            'residents':     residents_out,
-            'total_tracked': total_tracked,
-            'attended_any':  attended_any,
-            'pct_attended':  int(attended_any / total_tracked * 100) if total_tracked else 0,
-            'avg_att':       avg_att,
-            'annual_reg':    annual_total_reg,
-            'annual_conf':   annual_total_conf,
-            'annual_pres':   annual_total_pres,
-            'annual_top':    annual_top[:10],
+            'curr_month':      curr_month_name,
+            'prev_month':      prev_month_name or '—',
+            'total_residents': total_residents,
+            'events':          events,
+            'event_count':     len(done_events),
+            'avg_pct':         avg_pct,
+            'top_event':       top_event,
+            'top_noshows':     top_noshows,
+            'status_counts':   dict(status_counts),
+            'residents':       residents_out,
+            'annual_reg':      ann_reg,
+            'annual_conf':     ann_conf,
+            'annual_pres':     ann_pres,
+            'annual_top':      annual_top[:10],
         }
     except Exception as e:
-        return {'error': str(e)}
+        import traceback
+        return {'error': str(e), 'trace': traceback.format_exc()}
 
 # ── Routes ────────────────────────────────────────────────
 @app.route('/')

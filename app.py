@@ -23,6 +23,14 @@ MEMBERSHIP_WEIGHTS = {
     '1/2 Резидент Women': 0.5,
 }
 
+# Квартальные цели по платящим резидентам
+QUARTERLY_GOALS = {
+    1: 45,   # Q1: январь–март
+    2: 55,   # Q2: апрель–июнь
+    3: 62,   # Q3: июль–сентябрь
+    4: 72,   # Q4: октябрь–декабрь
+}
+
 TEAM = {
     'Даша':  {'work': 'Задачи Даша',    'backlog': 'Backlog_Даша'},
     'Алина': {'work': 'Алина_в работе', 'backlog': 'Backlog_Алина'},
@@ -385,13 +393,34 @@ def fetch_residents():
         def fmt(n):
             return int(n) if n == int(n) else n
 
+        # ── KPI по кварталам ──
+        current_q    = (datetime.now().month - 1) // 3 + 1
+        current_goal = QUARTERLY_GOALS[current_q]
+        paying_now   = fmt(total_paying)
+        gap          = current_goal - total_paying
+        pct_to_goal  = int(min(total_paying / current_goal * 100, 100)) if current_goal else 0
+
+        quarters = [
+            {'q': q, 'name': name, 'goal': QUARTERLY_GOALS[q],
+             'current': q == current_q}
+            for q, name in [
+                (1, 'Q1 · янв–мар'), (2, 'Q2 · апр–июн'),
+                (3, 'Q3 · июл–сен'), (4, 'Q4 · окт–дек'),
+            ]
+        ]
+
         return {
             'total':          total,
             'status_counts':  dict(status_counts),
             'birthdays_week': birthdays_week,
-            'paying':         fmt(total_paying),
+            'paying':         paying_now,
             'paid_ok':        fmt(total_paid_ok),
             'not_paid':       fmt(total_paying - total_paid_ok),
+            'current_q':      current_q,
+            'current_goal':   current_goal,
+            'gap_to_goal':    fmt(gap) if gap > 0 else 0,
+            'pct_to_goal':    pct_to_goal,
+            'quarters':       quarters,
         }
     except Exception as e:
         return {'error': str(e)}

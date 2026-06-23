@@ -299,6 +299,47 @@
     </div>
   </div>
 
+  <!-- KPI по кварталам -->
+  <div class="section-label">Цель квартала · платящие резиденты</div>
+  <div class="week-box" style="margin-bottom:28px;">
+    <div class="week-stats">
+      <div>
+        <div class="ws-big purple">{{ residents.paying }}</div>
+        <div class="ws-lbl">сейчас</div>
+      </div>
+      <div>
+        <div class="ws-big white">{{ residents.current_goal }}</div>
+        <div class="ws-lbl">цель Q{{ residents.current_q }}</div>
+      </div>
+      {% if residents.gap_to_goal %}
+      <div>
+        <div class="ws-big" style="color:#f59e0b;">+{{ residents.gap_to_goal }}</div>
+        <div class="ws-lbl">до цели</div>
+      </div>
+      {% else %}
+      <div>
+        <div class="ws-big green">✓</div>
+        <div class="ws-lbl">цель достигнута</div>
+      </div>
+      {% endif %}
+      <div style="margin-left:auto;">
+        <div class="ws-big indigo">{{ residents.pct_to_goal }}%</div>
+        <div class="ws-lbl">выполнено</div>
+      </div>
+    </div>
+    <div class="pbar"><div class="pfill" style="width:{{ residents.pct_to_goal }}%"></div></div>
+
+    <!-- Все кварталы -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px;">
+      {% for q in residents.quarters %}
+      <div style="background:{% if q.current %}#1e293b{% else %}#0f172a{% endif %};border:1px solid {% if q.current %}#6366f1{% else %}#1e293b{% endif %};border-radius:8px;padding:10px 12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:{% if q.current %}#818cf8{% else %}#334155{% endif %};margin-bottom:4px;">{{ q.name }}</div>
+        <div style="font-size:20px;font-weight:700;color:{% if q.current %}#f1f5f9{% else %}#475569{% endif %};">{{ q.goal }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
   <!-- Главная цифра + статусы -->
   <div class="section-label">Состав клуба</div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:28px;">

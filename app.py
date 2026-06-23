@@ -396,9 +396,8 @@ def fetch_residents():
         # ── KPI по кварталам ──
         current_q    = (datetime.now().month - 1) // 3 + 1
         current_goal = QUARTERLY_GOALS[current_q]
-        paying_now   = fmt(total_paying)
-        gap          = current_goal - total_paying
-        pct_to_goal  = int(min(total_paying / current_goal * 100, 100)) if current_goal else 0
+        gap          = current_goal - total_paid_ok
+        pct_to_goal  = int(min(total_paid_ok / current_goal * 100, 100)) if current_goal else 0
 
         quarters = [
             {'q': q, 'name': name, 'goal': QUARTERLY_GOALS[q],

@@ -430,20 +430,27 @@
   <div class="funnel-box" style="margin-bottom:14px;">
     {% for ev in attendance.events %}
     {% if ev.attended > 0 %}
-    <div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0f172a;">
+    <div style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0f172a;">
       <!-- Название -->
       <div style="font-size:13px;color:#cbd5e1;">{{ ev.name }}</div>
-      <!-- Бар + % от резидентов -->
-      <div style="display:flex;align-items:center;gap:10px;min-width:200px;">
+      <!-- Бар + % зарег→пришли -->
+      <div style="display:flex;align-items:center;gap:10px;min-width:180px;">
         <div style="flex:1;height:7px;background:#0f172a;border-radius:4px;overflow:hidden;">
           <div style="height:100%;border-radius:4px;width:{{ ev.pct_reg }}%;background:{% if ev.pct_reg >= 70 %}#22c55e{% elif ev.pct_reg >= 40 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
         </div>
-        <span style="font-size:13px;font-weight:700;min-width:38px;text-align:right;color:{% if ev.pct_reg >= 70 %}#22c55e{% elif ev.pct_reg >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">{{ ev.pct_reg }}%</span>
+        <div style="min-width:38px;text-align:right;">
+          <span style="font-size:13px;font-weight:700;color:{% if ev.pct_reg >= 70 %}#22c55e{% elif ev.pct_reg >= 40 %}#f59e0b{% else %}#ef4444{% endif %};">{{ ev.pct_reg }}%</span>
+        </div>
       </div>
-      <!-- Числа -->
-      <div style="font-size:13px;color:#475569;min-width:60px;text-align:right;">
+      <!-- Пришли / зарег -->
+      <div style="font-size:13px;min-width:56px;text-align:right;">
         <span style="color:#94a3b8;font-weight:600;">{{ ev.attended }}</span>
         <span style="color:#334155;"> / {{ ev.registered }}</span>
+      </div>
+      <!-- % от всех резидентов -->
+      <div style="min-width:70px;text-align:right;">
+        <span style="font-size:12px;color:#475569;">{{ ev.pct_total }}%</span>
+        <div style="font-size:10px;color:#334155;letter-spacing:0.3px;">от клуба</div>
       </div>
     </div>
     {% endif %}

@@ -511,9 +511,9 @@ def fetch_attendance():
                 status = 'Амбассадор'
             elif name not in prev_data:
                 status = 'Новый'
-            elif total >= 3:
+            elif p_curr >= 3:
                 status = 'Активный'
-            elif total >= 1:
+            elif p_curr >= 1:
                 status = 'Выпал'
             else:
                 status = 'Под риском'

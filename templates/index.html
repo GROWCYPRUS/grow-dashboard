@@ -122,6 +122,7 @@
 <div class="tabs">
   <div class="tab active" onclick="switchTab('tasks', this)">📋 Задачи</div>
   <div class="tab" onclick="switchTab('crm', this)">🎯 CRM · Воронка</div>
+  <div class="tab" onclick="switchTab('residents', this)">👥 Резиденты</div>
 </div>
 
 <!-- ══════════════ ЗАДАЧИ ══════════════ -->
@@ -269,6 +270,64 @@
   {% endif %}
 {% else %}
   <div class="crm-error">CRM не подключена</div>
+{% endif %}
+
+</div>
+
+<!-- ══════════════ РЕЗИДЕНТЫ ══════════════ -->
+<div id="tab-residents" class="tab-content">
+
+{% if residents %}
+  {% if residents.error is defined %}
+  <div class="crm-error">⚠️ Ошибка загрузки: {{ residents.error }}</div>
+  {% else %}
+
+  <!-- Главная цифра + статусы -->
+  <div class="section-label">Состав клуба</div>
+  <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:28px;">
+
+    <!-- Всего -->
+    <div class="kpi" style="display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;">
+      <div class="kpi-label" style="text-align:center;">Всего резидентов</div>
+      <div class="kpi-value purple" style="font-size:52px;margin-top:8px;">{{ residents.total }}</div>
+    </div>
+
+    <!-- Разбивка по статусам -->
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center;gap:10px;">
+      {% set status_colors = {'Активный': '#22c55e', 'Новый': '#6366f1', 'Тихий': '#f59e0b', 'Под риском': '#ef4444', 'Выпал': '#475569'} %}
+      {% for status, cnt in residents.status_counts.items() | sort(attribute='1', reverse=True) %}
+      {% if cnt > 0 %}
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:{{ status_colors.get(status, '#64748b') }};flex-shrink:0;"></div>
+        <span style="font-size:13px;color:#94a3b8;flex:1;">{{ status }}</span>
+        <span style="font-size:18px;font-weight:700;color:{{ status_colors.get(status, '#94a3b8') }};">{{ cnt }}</span>
+        <div style="width:80px;background:#0f172a;border-radius:99px;height:4px;">
+          <div style="height:100%;border-radius:99px;background:{{ status_colors.get(status, '#64748b') }};width:{{ (cnt / residents.total * 100)|int }}%;"></div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Дни рождения этой недели -->
+  <div class="section-label">🎂 Дни рождения · эта неделя</div>
+  {% if residents.birthdays_week %}
+  <div class="summary-box">
+    {% for b in residents.birthdays_week %}
+    <div class="sum-row">
+      <span class="sum-name">{{ b.name }}</span>
+      <span style="font-size:15px;font-weight:600;color:#818cf8;">{{ b.date }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card"><div class="empty" style="padding:16px;text-align:center;">На этой неделе именинников нет 🎉</div></div>
+  {% endif %}
+
+  {% endif %}
+{% else %}
+  <div class="crm-error">Данные не загружены</div>
 {% endif %}
 
 </div>

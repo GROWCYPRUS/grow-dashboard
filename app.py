@@ -13,6 +13,8 @@ AMO_TOKEN    = os.environ.get('AMO_TOKEN', '')
 AMO_DOMAIN   = 'infogrowbccom.amocrm.ru'
 AMO_PIPELINE = 7514314  # Продажи
 
+RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
+
 TEAM = {
     'Даша':  {'work': 'Задачи Даша',    'backlog': 'Backlog_Даша'},
     'Алина': {'work': 'Алина_в работе', 'backlog': 'Backlog_Алина'},
@@ -278,18 +280,94 @@ def fetch_crm():
     except Exception as e:
         return {'error': str(e)}
 
+# ── Residents ─────────────────────────────────────────────
+def fetch_gsheet_csv(sheet_id, sheet_name):
+    import csv, io
+    r = requests.get(
+        f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq',
+        params={'tqx': 'out:csv', 'sheet': sheet_name},
+        timeout=15
+    )
+    r.raise_for_status()
+    reader = csv.DictReader(io.StringIO(r.text))
+    return list(reader)
+
+def fetch_residents():
+    try:
+        from collections import Counter
+
+        # ── Резиденты ──
+        rows = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Резиденты')
+
+        # Найдём колонку со статусом (содержит слово «статус»)
+        status_col = next(
+            (k for k in (rows[0].keys() if rows else []) if 'статус' in k.lower()),
+            None
+        )
+        name_col = next(
+            (k for k in (rows[0].keys() if rows else []) if 'имя' in k.lower() or 'фамили' in k.lower()),
+            None
+        )
+
+        # Считаем резидентов, исключая «Вышел»
+        active_rows = [r for r in rows if r.get(status_col, '').strip() != 'Вышел' and r.get(name_col, '').strip()]
+        total = len(active_rows)
+
+        # Разбивка по статусам
+        status_counts = Counter(r.get(status_col, '').strip() for r in active_rows)
+
+        # ── Дни рождения этой недели ──
+        bday_rows = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Д/Р')
+
+        today      = datetime.now()
+        week_start = (today - timedelta(days=today.weekday())).replace(hour=0, minute=0, second=0)
+        week_end   = week_start + timedelta(days=6, hours=23, minutes=59)
+
+        birthdays_week = []
+        for b in bday_rows:
+            day_month = b.get('День.Месяц', '').strip()
+            name      = b.get('Фамилия и Имя', '').strip()
+            if not day_month or not name or '.' not in day_month:
+                continue
+            try:
+                parts = day_month.split('.')
+                day   = int(parts[0])
+                month = int(parts[1])
+                bday  = datetime(today.year, month, day)
+                if week_start.date() <= bday.date() <= week_end.date():
+                    months_ru = ['января','февраля','марта','апреля','мая','июня',
+                                 'июля','августа','сентября','октября','ноября','декабря']
+                    birthdays_week.append({
+                        'name': name,
+                        'day':  day,
+                        'date': f'{day} {months_ru[month-1]}',
+                    })
+            except Exception:
+                continue
+
+        birthdays_week.sort(key=lambda x: x['day'])
+
+        return {
+            'total':          total,
+            'status_counts':  dict(status_counts),
+            'birthdays_week': birthdays_week,
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
 # ── Routes ────────────────────────────────────────────────
 @app.route('/')
 def index():
     try:
         team, week = fetch_trello()
         crm        = fetch_crm()
+        residents  = fetch_residents()
         error      = None
     except Exception as e:
-        team, week, crm = {}, {}, None
+        team, week, crm, residents = {}, {}, None, None
         error = str(e)
     return render_template('index.html',
-        team=team, week=week, crm=crm,
+        team=team, week=week, crm=crm, residents=residents,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )

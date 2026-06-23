@@ -31,6 +31,21 @@ QUARTERLY_GOALS = {
     4: 72,   # Q4: октябрь–декабрь
 }
 
+# Посещаемость — ежемесячные файлы (сводная вкладка gid)
+ATTENDANCE_SHEETS = {
+    'Январь':  {'id': '1wWrJNqfCvmWecNHFOHQ8Gksft5SCQsogdDMy8d3VwIM', 'gid': '411480352'},
+    'Февраль': {'id': '1XKCtDfw2obueBK3HJ9UXlc-5siKE4mphfiXYyixWHo8', 'gid': '411480352'},
+    'Март':    {'id': '1R5q0WvnrsS6q8aucal3PGK8KQCNeVFHFQ9xENctgNPQ', 'gid': '411480352'},
+    'Апрель':  {'id': '135D51Qubab4lGFy9Vp5a41-ziX_YlLC5nG-xE6_X2NA', 'gid': '411480352'},
+    'Май':     {'id': '15__VbyyNTHXFWufA6pS_BOj6TtKSD2ERYnUUkm6xeck', 'gid': '411480352'},
+    'Июнь':    {'id': '18TCohHjM2GPkn430uc4h0A0AGMRRYS8MUTT65JJiBDI', 'gid': '411480352'},
+    'Июль':    {'id': '18uIkcV9pRs7-xvSFdMBc8KRQS5ymkmQ_PTnqFHehrnk', 'gid': '1364402557'},
+}
+ANNUAL_SHEET_ID = '1P-r6Q7uZ9aovbBFZqV17iHsRqTdT3m3BHxg6_BMY3Y8'
+ANNUAL_GID      = '2092514904'
+MONTH_NAMES_RU  = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                   'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
+
 TEAM = {
     'Даша':  {'work': 'Задачи Даша',    'backlog': 'Backlog_Даша'},
     'Алина': {'work': 'Алина_в работе', 'backlog': 'Backlog_Алина'},
@@ -424,6 +439,149 @@ def fetch_residents():
     except Exception as e:
         return {'error': str(e)}
 
+# ── Attendance ────────────────────────────────────────────
+def fetch_attendance():
+    try:
+        import csv as _csv, io
+        from collections import defaultdict
+
+        def raw_csv(sheet_id, gid):
+            r = requests.get(
+                f'https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq',
+                params={'tqx': 'out:csv', 'gid': gid}, timeout=15
+            )
+            r.raise_for_status()
+            return list(_csv.reader(io.StringIO(r.text)))
+
+        # Текущий и предыдущий месяц
+        today           = datetime.now()
+        curr_month_name = MONTH_NAMES_RU[today.month - 1]
+        prev_month_name = MONTH_NAMES_RU[today.month - 2] if today.month > 1 else None
+
+        def load_summary(month_name):
+            info = ATTENDANCE_SHEETS.get(month_name)
+            if not info:
+                return {}
+            rows = fetch_gsheet_csv(info['id'], gid=info['gid'])
+            result = {}
+            for row in rows:
+                name = row.get('ФИО', '').strip()
+                if not name:
+                    continue
+                try:
+                    presence = int(row.get('Присутствие', '0') or 0)
+                except (ValueError, TypeError):
+                    presence = 0
+                result[name] = {
+                    'presence': presence,
+                    'tariff':   row.get('Тариф', '').strip(),
+                }
+            return result
+
+        curr_data = load_summary(curr_month_name)
+        prev_data = load_summary(prev_month_name) if prev_month_name else {}
+
+        # Вышедшие из основной таблицы
+        res_rows   = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Резиденты')
+        status_col = next((k for k in (res_rows[0].keys() if res_rows else []) if 'статус' in k.lower()), None)
+        name_col   = next((k for k in (res_rows[0].keys() if res_rows else []) if 'имя' in k.lower() or 'фамили' in k.lower()), None)
+        exited     = {r.get(name_col,'').strip() for r in res_rows if r.get(status_col,'').strip() == 'Вышел'}
+        exited_count = len(exited)
+
+        # Статус каждого резидента
+        all_names     = set(curr_data) | set(prev_data)
+        status_counts = defaultdict(int)
+        residents_out = []
+
+        for name in sorted(all_names):
+            if not name:
+                continue
+            curr   = curr_data.get(name, {})
+            prev   = prev_data.get(name, {})
+            tariff = (curr.get('tariff') or prev.get('tariff') or '').strip()
+
+            if tariff == 'Deactive' or name in exited:
+                continue   # Вышедших считаем отдельно из основной таблицы
+
+            p_curr = curr.get('presence', 0)
+            p_prev = prev.get('presence', 0)
+            total  = p_curr + p_prev
+
+            if tariff == 'Амбассадор':
+                status = 'Амбассадор'
+            elif name not in prev_data:
+                status = 'Новый'
+            elif total >= 3:
+                status = 'Активный'
+            elif total >= 1:
+                status = 'Выпал'
+            else:
+                status = 'Под риском'
+
+            status_counts[status] += 1
+            residents_out.append({
+                'name':   name,
+                'tariff': tariff,
+                'p_curr': p_curr,
+                'p_prev': p_prev,
+                'total':  total,
+                'status': status,
+            })
+
+        status_counts['Вышел'] = exited_count
+
+        STATUS_ORDER = {'Активный':0,'Выпал':1,'Под риском':2,'Новый':3,'Амбассадор':4,'Вышел':5}
+        residents_out.sort(key=lambda x: (STATUS_ORDER.get(x['status'], 9), x['name']))
+
+        # Агрегат текущего месяца (без Амбассадоров)
+        tracked       = [r for r in residents_out if r['status'] != 'Амбассадор']
+        total_tracked = len(tracked)
+        attended_any  = sum(1 for r in tracked if r['p_curr'] > 0)
+        total_att     = sum(r['p_curr'] for r in tracked)
+        avg_att       = round(total_att / total_tracked, 1) if total_tracked else 0
+
+        # Годовая статистика (raw CSV, у файла нет нормального заголовка ФИО)
+        annual_rows      = raw_csv(ANNUAL_SHEET_ID, ANNUAL_GID)
+        annual_total_reg = annual_total_conf = annual_total_pres = 0
+        annual_top = []
+
+        for row in annual_rows[1:]:   # пропускаем заголовок
+            if len(row) < 5:
+                continue
+            name_val = row[1].strip()
+            if not name_val:
+                continue
+            try:
+                reg  = int(row[2]) if row[2].strip() else 0
+                conf = int(row[3]) if row[3].strip() else 0
+                pres = int(row[4]) if row[4].strip() else 0
+            except (ValueError, IndexError):
+                continue
+            annual_total_reg  += reg
+            annual_total_conf += conf
+            annual_total_pres += pres
+            if pres > 0:
+                annual_top.append({'name': name_val, 'reg': reg, 'conf': conf, 'pres': pres})
+
+        annual_top.sort(key=lambda x: -x['pres'])
+
+        return {
+            'curr_month':    curr_month_name,
+            'prev_month':    prev_month_name or '—',
+            'status_counts': dict(status_counts),
+            'residents':     residents_out,
+            'total_tracked': total_tracked,
+            'attended_any':  attended_any,
+            'pct_attended':  int(attended_any / total_tracked * 100) if total_tracked else 0,
+            'avg_att':       avg_att,
+            'annual_reg':    annual_total_reg,
+            'annual_conf':   annual_total_conf,
+            'annual_pres':   annual_total_pres,
+            'annual_top':    annual_top[:10],
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
 # ── Routes ────────────────────────────────────────────────
 @app.route('/')
 def index():
@@ -431,12 +589,14 @@ def index():
         team, week = fetch_trello()
         crm        = fetch_crm()
         residents  = fetch_residents()
+        attendance = fetch_attendance()
         error      = None
     except Exception as e:
-        team, week, crm, residents = {}, {}, None, None
+        team, week, crm, residents, attendance = {}, {}, None, None, None
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
+        attendance=attendance,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )

@@ -99,6 +99,18 @@
 
   .error { color: #ef4444; background: #1e293b; padding: 20px; border-radius: 12px; }
   .crm-error { color: #64748b; font-size: 13px; padding: 20px; text-align: center; }
+
+  /* ── Attendance ── */
+  .att-status-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 28px; }
+  .att-table-wrap  { background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
+  .att-table-inner { max-height: 500px; overflow-y: auto; }
+  .att-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .att-table thead th { position: sticky; top: 0; background: #253347; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 10px 14px; border-bottom: 1px solid #334155; white-space: nowrap; }
+  .att-table tbody tr { border-bottom: 1px solid #0f172a; }
+  .att-table tbody tr:last-child { border-bottom: none; }
+  .att-table tbody td { padding: 7px 14px; }
+  .att-badge { font-size: 11px; padding: 3px 10px; border-radius: 99px; font-weight: 600; }
+  @media (max-width: 900px) { .att-status-grid { grid-template-columns: repeat(3, 1fr); } }
 </style>
 </head>
 <body>
@@ -123,6 +135,7 @@
   <div class="tab active" onclick="switchTab('residents', this)">👥 Резиденты</div>
   <div class="tab" onclick="switchTab('tasks', this)">📋 Задачи</div>
   <div class="tab" onclick="switchTab('crm', this)">🎯 CRM · Воронка</div>
+  <div class="tab" onclick="switchTab('attendance', this)">📊 Посещаемость</div>
 </div>
 
 <!-- ══════════════ ЗАДАЧИ ══════════════ -->
@@ -394,6 +407,151 @@
       {% endif %}
       {% endfor %}
     </div>
+  </div>
+
+  {% endif %}
+{% else %}
+  <div class="crm-error">Данные не загружены</div>
+{% endif %}
+
+</div>
+
+<!-- ══════════════ ПОСЕЩАЕМОСТЬ ══════════════ -->
+<div id="tab-attendance" class="tab-content">
+
+{% if attendance %}
+  {% if attendance.error is defined %}
+  <div class="crm-error">⚠️ Ошибка загрузки посещаемости: {{ attendance.error }}</div>
+  {% else %}
+
+  <!-- Статус резидентов -->
+  <div class="section-label">Статус резидентов · {{ attendance.prev_month }} + {{ attendance.curr_month }}</div>
+  <div class="att-status-grid">
+    <div class="kpi" style="border-left:3px solid #22c55e;">
+      <div class="kpi-label">Активных</div>
+      <div class="kpi-value green">{{ attendance.status_counts.get('Активный', 0) }}</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid #f59e0b;">
+      <div class="kpi-label">Выпали</div>
+      <div class="kpi-value" style="color:#f59e0b;">{{ attendance.status_counts.get('Выпал', 0) }}</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid #ef4444;">
+      <div class="kpi-label">Под риском</div>
+      <div class="kpi-value red">{{ attendance.status_counts.get('Под риском', 0) }}</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid #6366f1;">
+      <div class="kpi-label">Новые</div>
+      <div class="kpi-value" style="color:#6366f1;">{{ attendance.status_counts.get('Новый', 0) }}</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid #818cf8;">
+      <div class="kpi-label">Амбассадоры</div>
+      <div class="kpi-value purple">{{ attendance.status_counts.get('Амбассадор', 0) }}</div>
+    </div>
+    <div class="kpi" style="border-left:3px solid #475569;">
+      <div class="kpi-label">Вышли</div>
+      <div class="kpi-value" style="color:#475569;">{{ attendance.status_counts.get('Вышел', 0) }}</div>
+    </div>
+  </div>
+
+  <!-- Посещаемость текущего месяца -->
+  <div class="section-label">{{ attendance.curr_month }} · посещаемость</div>
+  <div class="kpi-row" style="margin-bottom:28px;">
+    <div class="kpi">
+      <div class="kpi-label">Резидентов в базе</div>
+      <div class="kpi-value white">{{ attendance.total_tracked }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Посетили 1+ ивентов</div>
+      <div class="kpi-value green">{{ attendance.attended_any }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">% охвата</div>
+      <div class="kpi-value purple">{{ attendance.pct_attended }}%</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Среднее на резидента</div>
+      <div class="kpi-value" style="color:#f59e0b;">{{ attendance.avg_att }}</div>
+    </div>
+  </div>
+
+  <!-- Детализация по резидентам -->
+  <div class="section-label">Детализация · {{ attendance.curr_month }}</div>
+  <div class="att-table-wrap">
+    <div class="att-table-inner">
+      <table class="att-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;">ФИО</th>
+            <th style="text-align:left;">Тариф</th>
+            <th style="text-align:center;">{{ attendance.prev_month }}</th>
+            <th style="text-align:center;">{{ attendance.curr_month }}</th>
+            <th style="text-align:center;">2 мес.</th>
+            <th style="text-align:left;">Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in attendance.residents %}
+          <tr>
+            <td style="color:#cbd5e1;white-space:nowrap;">{{ r.name }}</td>
+            <td style="color:#475569;font-size:11px;">{{ r.tariff }}</td>
+            <td style="text-align:center;color:#64748b;">{{ r.p_prev if r.p_prev > 0 else '—' }}</td>
+            <td style="text-align:center;font-weight:{% if r.p_curr > 0 %}600{% else %}400{% endif %};color:{% if r.p_curr >= 3 %}#22c55e{% elif r.p_curr >= 1 %}#f59e0b{% else %}#475569{% endif %};">{{ r.p_curr if r.p_curr > 0 else '—' }}</td>
+            <td style="text-align:center;color:#94a3b8;font-weight:600;">{{ r.total if r.total > 0 else '—' }}</td>
+            <td>
+              {% if r.status == 'Активный' %}
+              <span class="att-badge" style="color:#22c55e;background:#22c55e1a;">{{ r.status }}</span>
+              {% elif r.status == 'Выпал' %}
+              <span class="att-badge" style="color:#f59e0b;background:#f59e0b1a;">{{ r.status }}</span>
+              {% elif r.status == 'Под риском' %}
+              <span class="att-badge" style="color:#ef4444;background:#ef44441a;">{{ r.status }}</span>
+              {% elif r.status == 'Новый' %}
+              <span class="att-badge" style="color:#6366f1;background:#6366f11a;">{{ r.status }}</span>
+              {% elif r.status == 'Амбассадор' %}
+              <span class="att-badge" style="color:#818cf8;background:#818cf81a;">{{ r.status }}</span>
+              {% else %}
+              <span class="att-badge" style="color:#475569;background:#4755691a;">{{ r.status }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Год -->
+  <div class="section-label">Статистика за год</div>
+  <div class="kpi-row" style="margin-bottom:28px;">
+    <div class="kpi">
+      <div class="kpi-label">Регистраций всего</div>
+      <div class="kpi-value white">{{ attendance.annual_reg }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Подтверждений</div>
+      <div class="kpi-value purple">{{ attendance.annual_conf }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Реальных посещений</div>
+      <div class="kpi-value green">{{ attendance.annual_pres }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Конверсия рег → посещение</div>
+      <div class="kpi-value" style="color:#f59e0b;">{{ (attendance.annual_pres / attendance.annual_reg * 100)|int if attendance.annual_reg else 0 }}%</div>
+    </div>
+  </div>
+
+  <!-- Топ-10 по году -->
+  <div class="section-label">Топ-10 по посещениям · год</div>
+  <div class="summary-box">
+    {% for r in attendance.annual_top %}
+    <div class="sum-row">
+      <span class="sum-name">{{ loop.index }}. {{ r.name }}</span>
+      <div class="sum-right">
+        <span style="font-size:12px;color:#475569;">{{ r.reg }} рег. · {{ r.conf }} подтв.</span>
+        <span class="sum-done">{{ r.pres }}</span>
+      </div>
+    </div>
+    {% endfor %}
   </div>
 
   {% endif %}

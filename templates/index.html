@@ -315,10 +315,10 @@
         {% set gap_paying = residents.current_goal - residents.paying %}
         {% if gap_paying > 0 %}
         <div class="ws-big" style="color:#f59e0b;">+{{ gap_paying }}</div>
-        <div class="ws-lbl">до цели (подписок)</div>
+        <div class="ws-lbl">до цели (платящих)</div>
         {% else %}
         <div class="ws-big green">✓</div>
-        <div class="ws-lbl">подписок достаточно</div>
+        <div class="ws-lbl">платящих достаточно</div>
         {% endif %}
       </div>
       <div>
@@ -353,6 +353,21 @@
     </div>
   </div>
 
+  <!-- Дни рождения этой недели -->
+  <div class="section-label">🎂 Дни рождения · эта неделя</div>
+  {% if residents.birthdays_week %}
+  <div class="summary-box">
+    {% for b in residents.birthdays_week %}
+    <div class="sum-row">
+      <span class="sum-name">{{ b.name }}</span>
+      <span style="font-size:15px;font-weight:600;color:#818cf8;">{{ b.date }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card"><div class="empty" style="padding:16px;text-align:center;">На этой неделе именинников нет 🎉</div></div>
+  {% endif %}
+
   <!-- Главная цифра + статусы -->
   <div class="section-label">Состав клуба</div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:28px;">
@@ -380,21 +395,6 @@
       {% endfor %}
     </div>
   </div>
-
-  <!-- Дни рождения этой недели -->
-  <div class="section-label">🎂 Дни рождения · эта неделя</div>
-  {% if residents.birthdays_week %}
-  <div class="summary-box">
-    {% for b in residents.birthdays_week %}
-    <div class="sum-row">
-      <span class="sum-name">{{ b.name }}</span>
-      <span style="font-size:15px;font-weight:600;color:#818cf8;">{{ b.date }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="card"><div class="empty" style="padding:16px;text-align:center;">На этой неделе именинников нет 🎉</div></div>
-  {% endif %}
 
   {% endif %}
 {% else %}

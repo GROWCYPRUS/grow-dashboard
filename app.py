@@ -199,68 +199,54 @@ def fetch_crm():
         now_ts      = int(datetime.now().timestamp())
         month_start = int(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
 
-        # 1. Загружаем карту всех этапов из AmoCRM
-        status_map, pipeline_list = fetch_pipelines()
+        # 1. Загружаем карту этапов
+        status_map, _ = fetch_pipelines()
 
-        # 2. Все лиды по всем воронкам
-        all_leads   = amo_get_all('/leads')
-        grand_total = len(all_leads)
+        # 2. Только лиды из воронки Продажи
+        leads  = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
+        CLOSED = {142, 143}
 
-        # 3. Активные в воронке Продажи
-        active_total = sum(1 for l in all_leads if l.get('pipeline_id') == AMO_PIPELINE)
+        # Активные (без закрытых)
+        active_leads = [l for l in leads if l['status_id'] not in CLOSED]
+        active_total = len(active_leads)
 
-        # 4. Новые за текущий месяц
+        # 3. Новые за текущий месяц
         new_this_month = sum(
-            1 for l in all_leads
+            1 for l in active_leads
             if l.get('created_at', 0) >= month_start
         )
 
-        # 5. Воронка — все лиды по всем воронкам, сгруппированные по этапам
-        counts_by_status = Counter(l['status_id'] for l in all_leads)
+        # 4. Воронка — только этапы Продажи
+        counts_by_status = Counter(l['status_id'] for l in active_leads)
 
-        # Строим секции по воронкам
-        CLOSED = {142, 143}
-        funnel_sections = []
-        for pid, pname, _ in pipeline_list:
-            # Все статусы этой воронки с лидами
-            stages = []
-            for sid, info in sorted(
-                ((k, v) for k, v in status_map.items() if v['pipeline_id'] == pid),
-                key=lambda x: x[1]['sort']
-            ):
-                cnt = counts_by_status.get(sid, 0)
-                if cnt > 0:
-                    stages.append({'name': info['name'], 'count': cnt, 'closed': sid in CLOSED})
-            if stages:
-                max_cnt = max(s['count'] for s in stages)
-                for s in stages:
-                    s['pct'] = int(s['count'] / max_cnt * 100)
-                total_in_pipeline = sum(s['count'] for s in stages)
-                funnel_sections.append({
-                    'pipeline': pname,
-                    'stages':   stages,
-                    'total':    total_in_pipeline,
-                })
+        prodazhi_stages = []
+        for sid, info in sorted(
+            ((k, v) for k, v in status_map.items() if v['pipeline_id'] == AMO_PIPELINE),
+            key=lambda x: x[1]['sort']
+        ):
+            cnt = counts_by_status.get(sid, 0)
+            if cnt > 0:
+                prodazhi_stages.append({'name': info['name'], 'count': cnt, 'closed': False})
 
-        # Лиды с неизвестным статусом (если есть)
-        unknown_count = sum(
-            cnt for sid, cnt in counts_by_status.items()
-            if sid not in status_map
-        )
+        if prodazhi_stages:
+            max_cnt = max(s['count'] for s in prodazhi_stages)
+            for s in prodazhi_stages:
+                s['pct'] = int(s['count'] / max_cnt * 100)
 
-        # 6. Зависшие лиды — только по релевантным этапам
-        # Исключаем архивные и технические этапы
+        funnel_sections = [{
+            'pipeline': 'Воронка продаж',
+            'stages':   prodazhi_stages,
+            'total':    active_total,
+        }]
+
+        # 5. Зависшие — только из Продажи
         STUCK_EXCLUDE = {
-            'перенесла в битрикс',
-            'архив',
             'резидент',
             '3 касания без вовлечения',
         }
 
         stuck_by_stage = defaultdict(list)
-        for l in all_leads:
-            if l['status_id'] in CLOSED:
-                continue
+        for l in active_leads:
             days = (now_ts - l.get('updated_at', now_ts)) // 86400
             if days >= 7:
                 info       = status_map.get(l['status_id'])
@@ -279,13 +265,13 @@ def fetch_crm():
             stuck_summary.append({'stage': stage_name, 'count': cnt, 'days': days_str})
 
         return {
-            'grand_total':     grand_total,
+            'grand_total':     active_total,
             'active_total':    active_total,
             'new_month':       new_this_month,
             'stuck_count':     total_stuck,
             'stuck_summary':   stuck_summary,
             'funnel_sections': funnel_sections,
-            'unknown_count':   unknown_count,
+            'unknown_count':   0,
             'month_name':      ['январе','феврале','марте','апреле','мае','июне',
                                 'июле','августе','сентябре','октябре','ноябре','декабре'][datetime.now().month-1],
         }

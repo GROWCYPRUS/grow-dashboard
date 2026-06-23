@@ -213,11 +213,7 @@
   <!-- KPI -->
   <div class="kpi-row">
     <div class="kpi">
-      <div class="kpi-label">Всего лидов в CRM</div>
-      <div class="kpi-value white">{{ crm.grand_total }}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Активных (воронка Продажи)</div>
+      <div class="kpi-label">Активных лидов · Продажи</div>
       <div class="kpi-value purple">{{ crm.active_total }}</div>
     </div>
     <div class="kpi">
@@ -248,7 +244,7 @@
   {% endif %}
 
   <!-- Воронка по всем воронкам -->
-  <div class="section-label">Распределение по воронкам · все {{ crm.grand_total }} лидов</div>
+  <div class="section-label">Воронка продаж · {{ crm.active_total }} активных лидов</div>
   {% for section in crm.funnel_sections %}
   <div class="funnel-box" style="margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">

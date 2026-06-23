@@ -120,13 +120,13 @@
 
 <!-- ── Tabs ── -->
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('tasks', this)">📋 Задачи</div>
+  <div class="tab active" onclick="switchTab('residents', this)">👥 Резиденты</div>
+  <div class="tab" onclick="switchTab('tasks', this)">📋 Задачи</div>
   <div class="tab" onclick="switchTab('crm', this)">🎯 CRM · Воронка</div>
-  <div class="tab" onclick="switchTab('residents', this)">👥 Резиденты</div>
 </div>
 
 <!-- ══════════════ ЗАДАЧИ ══════════════ -->
-<div id="tab-tasks" class="tab-content active">
+<div id="tab-tasks" class="tab-content">
 
   {% if week %}
   <div class="section-label">Прогресс недели · {{ week.name }}</div>
@@ -275,7 +275,7 @@
 </div>
 
 <!-- ══════════════ РЕЗИДЕНТЫ ══════════════ -->
-<div id="tab-residents" class="tab-content">
+<div id="tab-residents" class="tab-content active">
 
 {% if residents %}
   {% if residents.error is defined %}
@@ -304,27 +304,40 @@
   <div class="week-box" style="margin-bottom:28px;">
     <div class="week-stats">
       <div>
-        <div class="ws-big green">{{ residents.paid_ok }}</div>
-        <div class="ws-lbl">оплатили</div>
-      </div>
-      <div>
         <div class="ws-big white">{{ residents.current_goal }}</div>
         <div class="ws-lbl">цель Q{{ residents.current_q }}</div>
       </div>
-      {% if residents.gap_to_goal %}
       <div>
-        <div class="ws-big" style="color:#f59e0b;">+{{ residents.gap_to_goal }}</div>
-        <div class="ws-lbl">до цели</div>
+        <div class="ws-big purple">{{ residents.paying }}</div>
+        <div class="ws-lbl">всего платящих</div>
       </div>
-      {% else %}
       <div>
+        {% set gap_paying = residents.current_goal - residents.paying %}
+        {% if gap_paying > 0 %}
+        <div class="ws-big" style="color:#f59e0b;">+{{ gap_paying }}</div>
+        <div class="ws-lbl">до цели (подписок)</div>
+        {% else %}
         <div class="ws-big green">✓</div>
-        <div class="ws-lbl">цель достигнута</div>
+        <div class="ws-lbl">подписок достаточно</div>
+        {% endif %}
       </div>
-      {% endif %}
+      <div>
+        <div class="ws-big green">{{ residents.paid_ok }}</div>
+        <div class="ws-lbl">реально оплатили</div>
+      </div>
+      <div>
+        {% set gap_paid = residents.current_goal - residents.paid_ok %}
+        {% if gap_paid > 0 %}
+        <div class="ws-big" style="color:#ef4444;">+{{ gap_paid }}</div>
+        <div class="ws-lbl">до цели (оплат)</div>
+        {% else %}
+        <div class="ws-big green">✓</div>
+        <div class="ws-lbl">оплат достаточно</div>
+        {% endif %}
+      </div>
       <div style="margin-left:auto;">
         <div class="ws-big indigo">{{ residents.pct_to_goal }}%</div>
-        <div class="ws-lbl">выполнено</div>
+        <div class="ws-lbl">оплачено от цели</div>
       </div>
     </div>
     <div class="pbar"><div class="pfill" style="width:{{ residents.pct_to_goal }}%"></div></div>

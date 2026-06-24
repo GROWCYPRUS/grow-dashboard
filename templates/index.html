@@ -6,7 +6,7 @@
 <title>GROW Dashboard</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f1117; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+  body { background: #1a1d27; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
 
   /* ── Header ── */
   .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 28px; border-bottom: 1px solid #1e293b; }
@@ -40,7 +40,7 @@
   .card-stat b.p { color: #818cf8; font-size: 16px; }
 
   .task-scroll { max-height: 160px; overflow-y: auto; }
-  .trow { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #0f172a; }
+  .trow { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #13172a; }
   .trow:last-child { border-bottom: none; }
   .trow.done { color: #334155; text-decoration: line-through; }
   .trow.work { color: #94a3b8; }
@@ -64,20 +64,20 @@
   .purple { color: #818cf8; }
   .white  { color: #f1f5f9; }
   .indigo { color: #6366f1; }
-  .pbar  { background: #0f172a; border-radius: 99px; height: 7px; margin-bottom: 16px; }
+  .pbar  { background: #13172a; border-radius: 99px; height: 7px; margin-bottom: 16px; }
   .pfill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #6366f1, #22c55e); }
-  .week-card-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; padding: 4px 0; border-bottom: 1px solid #0f172a; }
+  .week-card-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; padding: 4px 0; border-bottom: 1px solid #13172a; }
   .week-card-row:last-child { border-bottom: none; }
 
   /* ── Summary ── */
   .summary-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 6px 18px; margin-bottom: 28px; }
-  .sum-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #0f172a; }
+  .sum-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #13172a; }
   .sum-row:last-child { border-bottom: none; }
   .sum-name { font-size: 14px; color: #cbd5e1; }
   .sum-right { display: flex; align-items: center; gap: 14px; }
   .sum-done { font-size: 22px; font-weight: 700; color: #22c55e; }
   .sum-work { font-size: 13px; color: #475569; }
-  .sum-bar-wrap { width: 70px; background: #0f172a; border-radius: 99px; height: 4px; }
+  .sum-bar-wrap { width: 70px; background: #13172a; border-radius: 99px; height: 4px; }
   .sum-bar { height: 100%; border-radius: 99px; background: #22c55e; }
 
   /* ── CRM ── */
@@ -93,7 +93,7 @@
   .funnel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .funnel-row:last-child { margin-bottom: 0; }
   .funnel-label { font-size: 12px; color: #94a3b8; min-width: 200px; }
-  .funnel-bar-wrap { flex: 1; height: 8px; background: #0f172a; border-radius: 4px; overflow: hidden; }
+  .funnel-bar-wrap { flex: 1; height: 8px; background: #13172a; border-radius: 4px; overflow: hidden; }
   .funnel-bar { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #6366f1, #818cf8); }
   .funnel-num { font-size: 13px; font-weight: 600; color: #f1f5f9; min-width: 28px; text-align: right; }
 
@@ -106,7 +106,7 @@
   .att-table-inner { max-height: 500px; overflow-y: auto; }
   .att-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .att-table thead th { position: sticky; top: 0; background: #253347; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 10px 14px; border-bottom: 1px solid #334155; white-space: nowrap; }
-  .att-table tbody tr { border-bottom: 1px solid #0f172a; }
+  .att-table tbody tr { border-bottom: 1px solid #13172a; }
   .att-table tbody tr:last-child { border-bottom: none; }
   .att-table tbody td { padding: 7px 14px; }
   .att-badge { font-size: 11px; padding: 3px 10px; border-radius: 99px; font-weight: 600; }
@@ -245,7 +245,7 @@
   <div class="section-label">Зависшие лиды</div>
   <div class="funnel-box" style="margin-bottom:28px;">
     {% for s in crm.stuck_summary %}
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #0f172a;">
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #13172a;">
       <span style="font-size:16px;flex-shrink:0;">⚠️</span>
       <div style="font-size:13px;color:#fde68a;line-height:1.5;">
         <strong>{{ s.count }} {{ 'лид' if s.count == 1 else ('лида' if s.count < 5 else 'лидов') }}</strong>
@@ -358,7 +358,7 @@
     <!-- Все кварталы -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px;">
       {% for q in residents.quarters %}
-      <div style="background:{% if q.current %}#1e293b{% else %}#0f172a{% endif %};border:1px solid {% if q.current %}#6366f1{% else %}#1e293b{% endif %};border-radius:8px;padding:10px 12px;">
+      <div style="background:{% if q.current %}#1e293b{% else %}#13172a{% endif %};border:1px solid {% if q.current %}#6366f1{% else %}#1e293b{% endif %};border-radius:8px;padding:10px 12px;">
         <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:{% if q.current %}#818cf8{% else %}#334155{% endif %};margin-bottom:4px;">{{ q.name }}</div>
         <div style="font-size:20px;font-weight:700;color:{% if q.current %}#f1f5f9{% else %}#475569{% endif %};">{{ q.goal }}</div>
       </div>
@@ -400,7 +400,7 @@
         <div style="width:8px;height:8px;border-radius:50%;background:{{ status_colors.get(status, '#64748b') }};flex-shrink:0;"></div>
         <span style="font-size:13px;color:#94a3b8;flex:1;">{{ status }}</span>
         <span style="font-size:18px;font-weight:700;color:{{ status_colors.get(status, '#94a3b8') }};">{{ cnt }}</span>
-        <div style="width:80px;background:#0f172a;border-radius:99px;height:4px;">
+        <div style="width:80px;background:#13172a;border-radius:99px;height:4px;">
           <div style="height:100%;border-radius:99px;background:{{ status_colors.get(status, '#64748b') }};width:{{ (cnt / residents.total * 100)|int }}%;"></div>
         </div>
       </div>
@@ -430,12 +430,12 @@
   <div class="funnel-box" style="margin-bottom:14px;">
     {% for ev in attendance.events %}
     {% if ev.attended > 0 %}
-    <div style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0f172a;">
+    <div style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #13172a;">
       <!-- Название -->
       <div style="font-size:13px;color:#cbd5e1;">{{ ev.name }}</div>
       <!-- Бар + % зарег→пришли -->
       <div style="display:flex;align-items:center;gap:10px;min-width:180px;">
-        <div style="flex:1;height:7px;background:#0f172a;border-radius:4px;overflow:hidden;">
+        <div style="flex:1;height:7px;background:#13172a;border-radius:4px;overflow:hidden;">
           <div style="height:100%;border-radius:4px;width:{{ ev.pct_reg }}%;background:{% if ev.pct_reg >= 70 %}#22c55e{% elif ev.pct_reg >= 40 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
         </div>
         <div style="min-width:38px;text-align:right;">
@@ -449,8 +449,8 @@
       </div>
       <!-- % от всех резидентов -->
       <div style="min-width:80px;text-align:right;">
-        <span style="font-size:15px;font-weight:700;color:#94a3b8;">{{ ev.pct_total }}%</span>
-        <div style="font-size:10px;color:#475569;margin-top:1px;">от клуба</div>
+        <span style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ ev.pct_total }}%</span>
+        <div style="font-size:10px;color:#64748b;margin-top:2px;letter-spacing:0.3px;">от клуба</div>
       </div>
     </div>
     {% endif %}
@@ -478,7 +478,7 @@
   <div class="section-label">⚠️ Регистрируются и не приходят · топ-5</div>
   <div class="funnel-box" style="margin-bottom:28px;">
     {% for p in attendance.top_noshows %}
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #0f172a;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #13172a;">
       <span style="font-size:13px;color:#94a3b8;">{{ loop.index }}. {{ p.name }}</span>
       <span style="font-size:13px;font-weight:700;color:#ef4444;">{{ p.count }} раз{{ 'а' if p.count in (2,3,4) else '' }}</span>
     </div>

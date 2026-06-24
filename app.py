@@ -46,6 +46,11 @@ ANNUAL_GID      = '2092514904'
 MONTH_NAMES_RU  = ['Январь','Февраль','Март','Апрель','Май','Июнь',
                    'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
 
+BUDGET_SHEET_ID = '1JyvdruB8xc5YSVNQncFmT_aheaViO8d-roQ609SBL2s'
+BUDGET_GID      = '1047075700'
+MONTH_ROMAN     = {1:'I',2:'II',3:'III',4:'IV',5:'V',6:'VI',
+                   7:'VII',8:'VIII',9:'IX',10:'X',11:'XI',12:'XII'}
+
 TEAM = {
     'Даша':  {'work': 'Задачи Даша',    'backlog': 'Backlog_Даша'},
     'Алина': {'work': 'Алина_в работе', 'backlog': 'Backlog_Алина'},
@@ -439,6 +444,65 @@ def fetch_residents():
     except Exception as e:
         return {'error': str(e)}
 
+# ── Budget ────────────────────────────────────────────────
+def parse_euro(s):
+    """€2 495,00  →  2495.0"""
+    s = str(s).replace('€','').replace('\xa0','').replace(' ','').replace(',','.').strip()
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+def fmt_euro(n):
+    """2495.0  →  €2 495"""
+    return '€' + f'{int(round(n)):,}'.replace(',', ' ')
+
+def fetch_budget():
+    try:
+        import csv as _csv, io
+        today      = datetime.now()
+        curr_roman = MONTH_ROMAN[today.month]
+
+        r = requests.get(
+            f'https://docs.google.com/spreadsheets/d/{BUDGET_SHEET_ID}/gviz/tq',
+            params={'tqx': 'out:csv', 'gid': BUDGET_GID}, timeout=15
+        )
+        r.raise_for_status()
+        rows = list(_csv.reader(io.StringIO(r.text)))
+
+        curr_plan = curr_fact = 0.0
+        ytd_plan  = ytd_fact  = 0.0
+
+        for row in rows:
+            if len(row) < 5:
+                continue
+            col_a = row[0].strip()
+            col_c = row[2].strip()
+            if col_a not in MONTH_ROMAN.values() or 'ИТОГО' not in col_c:
+                continue
+            plan = parse_euro(row[3])
+            fact = parse_euro(row[4])
+            ytd_plan += plan
+            ytd_fact += fact
+            if col_a == curr_roman:
+                curr_plan = plan
+                curr_fact = fact
+
+        curr_pct = int(curr_fact / curr_plan * 100) if curr_plan else 0
+        ytd_pct  = int(ytd_fact  / ytd_plan  * 100) if ytd_plan  else 0
+
+        return {
+            'month':      MONTH_NAMES_RU[today.month - 1],
+            'curr_plan':  fmt_euro(curr_plan),
+            'curr_fact':  fmt_euro(curr_fact),
+            'curr_pct':   curr_pct,
+            'ytd_plan':   fmt_euro(ytd_plan),
+            'ytd_fact':   fmt_euro(ytd_fact),
+            'ytd_pct':    ytd_pct,
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
 # ── Attendance ────────────────────────────────────────────
 # Ключевые слова для исключения вкладок (падел, форум-группы)
 ATT_SKIP_KEYWORDS = ['падел', 'форум-группа', ' фг', 'образец', 'сводная']
@@ -656,13 +720,14 @@ def index():
         crm        = fetch_crm()
         residents  = fetch_residents()
         attendance = fetch_attendance()
+        budget     = fetch_budget()
         error      = None
     except Exception as e:
-        team, week, crm, residents, attendance = {}, {}, None, None, None
+        team, week, crm, residents, attendance, budget = {}, {}, None, None, None, None
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
-        attendance=attendance,
+        attendance=attendance, budget=budget,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )

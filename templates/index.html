@@ -475,10 +475,8 @@
 
   <!-- ── Бюджет ивентов ───────────────────────────────────── -->
   {% if budget and budget.error is not defined %}
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px;">
-
-    <!-- Текущий месяц -->
-    <div class="kpi" style="padding:20px 24px;">
+  <div style="margin-bottom:28px;">
+    <div class="kpi" style="padding:20px 24px;max-width:420px;">
       <div class="kpi-label">Бюджет ивентов · {{ budget.month }}</div>
       <div style="font-size:38px;font-weight:700;color:#f1f5f9;line-height:1;margin:8px 0 4px;">{{ budget.curr_pct }}%</div>
       <div style="font-size:13px;color:#475569;">{{ budget.curr_fact }} из {{ budget.curr_plan }} плана</div>
@@ -486,17 +484,6 @@
         <div style="height:100%;border-radius:99px;width:{{ [budget.curr_pct, 100]|min }}%;background:{% if budget.curr_pct > 100 %}#ef4444{% elif budget.curr_pct >= 80 %}#f59e0b{% else %}#6366f1{% endif %};"></div>
       </div>
     </div>
-
-    <!-- С начала года -->
-    <div class="kpi" style="padding:20px 24px;">
-      <div class="kpi-label">Бюджет ивентов · с начала года</div>
-      <div style="font-size:38px;font-weight:700;color:#f1f5f9;line-height:1;margin:8px 0 4px;">{{ budget.ytd_pct }}%</div>
-      <div style="font-size:13px;color:#475569;">{{ budget.ytd_fact }} из {{ budget.ytd_plan }} плана</div>
-      <div style="margin-top:12px;background:#13172a;border-radius:99px;height:6px;">
-        <div style="height:100%;border-radius:99px;width:{{ [budget.ytd_pct, 100]|min }}%;background:{% if budget.ytd_pct > 100 %}#ef4444{% elif budget.ytd_pct >= 80 %}#f59e0b{% else %}#22c55e{% endif %};"></div>
-      </div>
-    </div>
-
   </div>
   {% endif %}
 

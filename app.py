@@ -459,46 +459,71 @@ def fmt_euro(n):
 
 def fetch_budget():
     try:
-        import csv as _csv, io
-        today      = datetime.now()
-        curr_roman = MONTH_ROMAN[today.month]
+        import io as _io, openpyxl
 
-        r = requests.get(
-            f'https://docs.google.com/spreadsheets/d/{BUDGET_SHEET_ID}/gviz/tq',
-            params={'tqx': 'out:csv', 'gid': BUDGET_GID}, timeout=15
+        today        = datetime.now()
+        curr_roman   = MONTH_ROMAN[today.month]
+        target_month = today.month
+
+        # Скачиваем XLSX — в нём и бюджет и календарь
+        xlsx_r = requests.get(
+            f'https://docs.google.com/spreadsheets/d/{BUDGET_SHEET_ID}/export?format=xlsx',
+            timeout=30
         )
-        r.raise_for_status()
-        rows = list(_csv.reader(io.StringIO(r.text)))
+        xlsx_r.raise_for_status()
+        wb = openpyxl.load_workbook(_io.BytesIO(xlsx_r.content), read_only=True, data_only=True)
 
+        # ── Бюджет из «2026_Орг.расходы» ───────────────────────
         curr_plan = curr_fact = 0.0
-        ytd_plan  = ytd_fact  = 0.0
-
-        for row in rows:
-            if len(row) < 5:
+        ws_bud = wb['2026_Орг.расходы']
+        for row in ws_bud.iter_rows(values_only=True):
+            if not row or len(row) < 5:
                 continue
-            col_a = row[0].strip()
-            col_c = row[2].strip()
-            if col_a not in MONTH_ROMAN.values() or 'ИТОГО' not in col_c:
-                continue
-            plan = parse_euro(row[3])
-            fact = parse_euro(row[4])
-            ytd_plan += plan
-            ytd_fact += fact
-            if col_a == curr_roman:
-                curr_plan = plan
-                curr_fact = fact
+            col_a = str(row[0]).strip() if row[0] else ''
+            col_c = str(row[2]).strip() if row[2] else ''
+            if col_a == curr_roman and 'ИТОГО' in col_c:
+                curr_plan = parse_euro(str(row[3]) if row[3] else '0')
+                curr_fact = parse_euro(str(row[4]) if row[4] else '0')
+                break
 
         curr_pct = int(curr_fact / curr_plan * 100) if curr_plan else 0
-        ytd_pct  = int(ytd_fact  / ytd_plan  * 100) if ytd_plan  else 0
+
+        # ── Кол-во опубликованных ивентов из «2026» ─────────────
+        MONTH_MAP = {
+            'ЯНВАРЬ':1,'ФЕВРАЛЬ':2,'МАРТ':3,'АПРЕЛЬ':4,'МАЙ':5,'ИЮНЬ':6,
+            'ИЮЛЬ':7,'АВГУСТ':8,'СЕНТЯБРЬ':9,'ОКТЯБРЬ':10,'НОЯБРЬ':11,'ДЕКАБРЬ':12
+        }
+        READY = {'Готов к публикации', 'Готова к публикации'}
+        published_count = 0
+        curr_m = None
+        ws_cal = wb['2026']
+
+        for row in ws_cal.iter_rows(values_only=True):
+            # Определяем заголовок месяца
+            for cell in row:
+                if cell:
+                    s = str(cell).upper()
+                    for mname, mnum in MONTH_MAP.items():
+                        if mname in s:
+                            curr_m = mnum
+
+            if curr_m is not None and curr_m > target_month:
+                break
+            if curr_m != target_month:
+                continue
+
+            label = str(row[0]).strip() if row[0] else ''
+            if label == 'Степень готовности':
+                for val in row[1:]:
+                    if val and str(val).strip() in READY:
+                        published_count += 1
 
         return {
-            'month':      MONTH_NAMES_RU[today.month - 1],
-            'curr_plan':  fmt_euro(curr_plan),
-            'curr_fact':  fmt_euro(curr_fact),
-            'curr_pct':   curr_pct,
-            'ytd_plan':   fmt_euro(ytd_plan),
-            'ytd_fact':   fmt_euro(ytd_fact),
-            'ytd_pct':    ytd_pct,
+            'month':                 MONTH_NAMES_RU[today.month - 1],
+            'curr_plan':             fmt_euro(curr_plan),
+            'curr_fact':             fmt_euro(curr_fact),
+            'curr_pct':              curr_pct,
+            'published_event_count': published_count,
         }
     except Exception as e:
         return {'error': str(e)}

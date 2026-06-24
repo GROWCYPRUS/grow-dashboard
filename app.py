@@ -498,22 +498,29 @@ def fetch_budget():
         curr_m = None
         ws_cal = wb['2026']
 
+        # Месяц определяем ТОЛЬКО в строках-заголовках (col_a пустой или 'Месяц').
+        # Это защита от ложных срабатываний: слово «МАЙ» входит в «МАСТЕРМАЙНД»,
+        # что сбивало счётчик в середине июня.
+        HEADER_COL_A = {'', 'none', 'месяц'}
+
         for row in ws_cal.iter_rows(values_only=True):
-            # Определяем заголовок месяца
-            for cell in row:
-                if cell:
-                    s = str(cell).upper()
-                    for mname, mnum in MONTH_MAP.items():
-                        if mname in s:
-                            curr_m = mnum
+            col_a = str(row[0]).strip() if row and row[0] else ''
+
+            # Ищем заголовок месяца только в «пустых» строках-разделителях
+            if col_a.lower() in HEADER_COL_A:
+                for cell in row:
+                    if cell:
+                        s = str(cell).upper().strip()
+                        for mname, mnum in MONTH_MAP.items():
+                            if s.startswith(mname):   # «ИЮНЬ» и «ИЮНЬ 2026» — ок; «МАСТЕРМАЙНД» — нет
+                                curr_m = mnum
 
             if curr_m is not None and curr_m > target_month:
                 break
             if curr_m != target_month:
                 continue
 
-            label = str(row[0]).strip() if row[0] else ''
-            if label == 'Степень готовности':
+            if col_a == 'Степень готовности':
                 for val in row[1:]:
                     if val and str(val).strip() in READY:
                         published_count += 1

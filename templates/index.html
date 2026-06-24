@@ -424,8 +424,48 @@
   <div class="crm-error">⚠️ Ошибка: {{ attendance.error }}</div>
   {% else %}
 
+  <!-- ── Верхняя строка: бюджет + ключевые метрики ────────── -->
+  <div class="section-label">Посещаемость · {{ attendance.curr_month }} · {{ attendance.total_event_count }} ивентов</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
+
+    <!-- Бюджет -->
+    {% if budget and budget.error is not defined %}
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Бюджет ивентов</div>
+      <div style="font-size:32px;font-weight:700;color:#f1f5f9;line-height:1;margin:6px 0 3px;">{{ budget.curr_pct }}%</div>
+      <div style="font-size:12px;color:#475569;">{{ budget.curr_fact }} из {{ budget.curr_plan }}</div>
+      <div style="margin-top:10px;background:#13172a;border-radius:99px;height:5px;">
+        <div style="height:100%;border-radius:99px;width:{{ [budget.curr_pct,100]|min }}%;background:{% if budget.curr_pct > 100 %}#ef4444{% elif budget.curr_pct >= 80 %}#f59e0b{% else %}#6366f1{% endif %};"></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="kpi"><div class="kpi-label">Бюджет</div><div class="kpi-value" style="color:#334155;">—</div></div>
+    {% endif %}
+
+    <!-- Всего ивентов (включая падел) -->
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Всего ивентов</div>
+      <div style="font-size:32px;font-weight:700;color:#818cf8;line-height:1;margin:6px 0 3px;">{{ attendance.total_event_count }}</div>
+      <div style="font-size:12px;color:#475569;">включая падел</div>
+    </div>
+
+    <!-- Средняя явка (без падела) -->
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Средняя явка</div>
+      <div style="font-size:32px;font-weight:700;color:#f1f5f9;line-height:1;margin:6px 0 3px;">{{ attendance.avg_pct }}%</div>
+      <div style="font-size:12px;color:#475569;">без падела · рег → посещение</div>
+    </div>
+
+    <!-- Топ ивент -->
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Топ по явке</div>
+      <div style="font-size:16px;font-weight:700;color:#22c55e;line-height:1.3;margin:6px 0 3px;">{{ attendance.top_event }}</div>
+    </div>
+
+  </div>
+
   <!-- ── Ивенты месяца ──────────────────────────────────── -->
-  <div class="section-label">Посещаемость · {{ attendance.curr_month }} · {{ attendance.event_count }} ивентов</div>
+  <div class="section-label">Ивенты · {{ attendance.event_count }} (без падела)</div>
 
   <div class="funnel-box" style="margin-bottom:14px;">
     {% for ev in attendance.events %}
@@ -456,36 +496,6 @@
     {% endif %}
     {% endfor %}
   </div>
-
-  <!-- Итоги месяца -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 20px;text-align:center;">
-      <div style="font-size:32px;font-weight:700;color:#f1f5f9;">{{ attendance.avg_pct }}%</div>
-      <div style="font-size:11px;color:#475569;margin-top:4px;">средняя явка</div>
-    </div>
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 20px;text-align:center;">
-      <div style="font-size:32px;font-weight:700;color:#818cf8;">{{ attendance.event_count }}</div>
-      <div style="font-size:11px;color:#475569;margin-top:4px;">ивентов</div>
-    </div>
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 20px;text-align:center;">
-      <div style="font-size:18px;font-weight:700;color:#22c55e;line-height:1.2;">{{ attendance.top_event }}</div>
-      <div style="font-size:11px;color:#475569;margin-top:4px;">топ по явке</div>
-    </div>
-  </div>
-
-  <!-- ── Бюджет ивентов ───────────────────────────────────── -->
-  {% if budget and budget.error is not defined %}
-  <div style="margin-bottom:28px;">
-    <div class="kpi" style="padding:20px 24px;max-width:420px;">
-      <div class="kpi-label">Бюджет ивентов · {{ budget.month }}</div>
-      <div style="font-size:38px;font-weight:700;color:#f1f5f9;line-height:1;margin:8px 0 4px;">{{ budget.curr_pct }}%</div>
-      <div style="font-size:13px;color:#475569;">{{ budget.curr_fact }} из {{ budget.curr_plan }} плана</div>
-      <div style="margin-top:12px;background:#13172a;border-radius:99px;height:6px;">
-        <div style="height:100%;border-radius:99px;width:{{ [budget.curr_pct, 100]|min }}%;background:{% if budget.curr_pct > 100 %}#ef4444{% elif budget.curr_pct >= 80 %}#f59e0b{% else %}#6366f1{% endif %};"></div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 
   <!-- ── Топ-5 «зарегистрировался и не пришёл» ─────────── -->
   {% if attendance.top_noshows %}

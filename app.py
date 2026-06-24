@@ -540,6 +540,13 @@ def fetch_attendance():
                             if r.get(status_col,'').strip() != 'Вышел' and r.get(name_col,'').strip()}
         total_residents  = len(active_res_names)
 
+        # Всего ивентов в месяце (включая падел, но без Сводной и Образца)
+        SKIP_META = {'сводная', 'образец'}
+        total_event_count = sum(
+            1 for sh in wb.sheetnames
+            if not any(kw in sh.lower() for kw in SKIP_META)
+        )
+
         events        = []
         no_show_count = defaultdict(int)   # имя → сколько раз зарегился и не пришёл
 
@@ -693,13 +700,14 @@ def fetch_attendance():
         annual_top.sort(key=lambda x: -x['pres'])
 
         return {
-            'curr_month':      curr_month_name,
-            'prev_month':      prev_month_name or '—',
-            'total_residents': total_residents,
-            'events':          events,
-            'event_count':     len(done_events),
-            'avg_pct':         avg_pct,
-            'top_event':       top_event,
+            'curr_month':        curr_month_name,
+            'prev_month':        prev_month_name or '—',
+            'total_residents':   total_residents,
+            'events':            events,
+            'event_count':       len(done_events),
+            'total_event_count': total_event_count,
+            'avg_pct':           avg_pct,
+            'top_event':         top_event,
             'top_noshows':     top_noshows,
             'status_counts':   dict(status_counts),
             'residents':       residents_out,

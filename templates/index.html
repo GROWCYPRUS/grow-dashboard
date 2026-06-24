@@ -425,7 +425,7 @@
   {% else %}
 
   <!-- ── Верхняя строка: бюджет + ключевые метрики ────────── -->
-  <div class="section-label">Посещаемость · {{ attendance.curr_month }} · {% if budget and budget.error is not defined %}{{ budget.published_event_count }}{% else %}{{ attendance.total_event_count }}{% endif %} ивентов</div>
+  <div class="section-label">Посещаемость · {{ attendance.curr_month }} · {% if budget and budget.error is not defined %}{{ budget.published_event_count + attendance.padel_banya_count }}{% else %}{{ attendance.total_event_count }}{% endif %} ивентов</div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
 
     <!-- Бюджет -->
@@ -446,9 +446,9 @@
     <div class="kpi" style="padding:18px 20px;">
       <div class="kpi-label">Всего ивентов</div>
       <div style="font-size:32px;font-weight:700;color:#818cf8;line-height:1;margin:6px 0 3px;">
-        {% if budget and budget.error is not defined %}{{ budget.published_event_count }}{% else %}{{ attendance.total_event_count }}{% endif %}
+        {% if budget and budget.error is not defined %}{{ budget.published_event_count + attendance.padel_banya_count }}{% else %}{{ attendance.total_event_count }}{% endif %}
       </div>
-      <div style="font-size:12px;color:#475569;">Готов к публикации</div>
+      <div style="font-size:12px;color:#475569;">включая падел и баню</div>
     </div>
 
     <!-- Средняя явка (без падела) -->

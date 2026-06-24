@@ -565,11 +565,18 @@ def fetch_attendance():
                             if r.get(status_col,'').strip() != 'Вышел' and r.get(name_col,'').strip()}
         total_residents  = len(active_res_names)
 
-        # Всего ивентов в месяце (включая падел, но без Сводной и Образца)
+        # Всего ивентов в месяце (без Сводной и Образца)
         SKIP_META = {'сводная', 'образец'}
         total_event_count = sum(
             1 for sh in wb.sheetnames
             if not any(kw in sh.lower() for kw in SKIP_META)
+        )
+
+        # Падел и баня — у них нет статуса в календаре, считаем отдельно
+        PADEL_BANYA_KW = ['падел', 'баня']
+        padel_banya_count = sum(
+            1 for sh in wb.sheetnames
+            if any(kw in sh.lower() for kw in PADEL_BANYA_KW)
         )
 
         events        = []
@@ -730,7 +737,8 @@ def fetch_attendance():
             'total_residents':   total_residents,
             'events':            events,
             'event_count':       len(done_events),
-            'total_event_count': total_event_count,
+            'total_event_count':   total_event_count,
+            'padel_banya_count':   padel_banya_count,
             'avg_pct':           avg_pct,
             'top_event':         top_event,
             'top_noshows':     top_noshows,

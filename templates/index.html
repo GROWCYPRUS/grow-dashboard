@@ -471,7 +471,6 @@
 
   <div class="funnel-box" style="margin-bottom:14px;">
     {% for ev in attendance.events %}
-    {% if ev.attended > 0 %}
     <div style="display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #13172a;">
       <!-- Название -->
       <div style="font-size:13px;color:#cbd5e1;">{{ ev.name }}</div>
@@ -495,7 +494,6 @@
         <div style="font-size:10px;color:#64748b;margin-top:2px;letter-spacing:0.3px;">от клуба</div>
       </div>
     </div>
-    {% endif %}
     {% endfor %}
   </div>
 

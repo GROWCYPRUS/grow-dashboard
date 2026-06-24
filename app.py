@@ -623,10 +623,6 @@ def fetch_attendance():
                 if pres_val == 'Да':
                     attended += 1
 
-            # Показываем только прошедшие ивенты (есть хоть кто-то зарегистрировался)
-            if registered == 0:
-                continue
-
             pct_of_total = round(attended / total_residents * 100) if total_residents else 0
             pct_of_reg   = round(attended / registered * 100) if registered else 0
 

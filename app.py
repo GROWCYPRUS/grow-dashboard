@@ -828,6 +828,22 @@ def fetch_meta():
         with_leads = [c for c in campaigns if c['leads'] > 0]
         best_cpl = min(with_leads, key=lambda x: x['cpl'])['cpl'] if with_leads else None
 
+        # Лиды из AmoCRM за текущий месяц
+        amo_leads = None
+        amo_cpl   = None
+        if AMO_TOKEN:
+            try:
+                month_start = int(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+                all_leads   = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
+                CLOSED      = {142, 143}
+                amo_leads   = sum(
+                    1 for l in all_leads
+                    if l['status_id'] not in CLOSED and l.get('created_at', 0) >= month_start
+                )
+                amo_cpl = round(spend / amo_leads, 2) if amo_leads else None
+            except Exception:
+                pass
+
         today = datetime.now()
         return {
             'month':       MONTH_NAMES_RU[today.month - 1],
@@ -840,6 +856,8 @@ def fetch_meta():
             'cpm':         round(cpm, 2),
             'cpc':         round(cpc, 2),
             'campaigns':   sorted(campaigns, key=lambda x: -x['leads']),
+            'amo_leads':   amo_leads,
+            'amo_cpl':     amo_cpl,
         }
     except Exception as e:
         return {'error': str(e)}

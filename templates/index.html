@@ -632,13 +632,7 @@
   <div class="section-label">📣 Meta Ads · {{ meta.month }}</div>
 
   <!-- KPI row -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
-
-    <div class="kpi" style="padding:18px 20px;">
-      <div class="kpi-label">Лидов</div>
-      <div style="font-size:36px;font-weight:700;color:#22c55e;line-height:1;margin:6px 0 3px;">{{ meta.leads }}</div>
-      <div style="font-size:12px;color:#475569;">за текущий месяц</div>
-    </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
 
     <div class="kpi" style="padding:18px 20px;">
       <div class="kpi-label">Потрачено</div>
@@ -647,18 +641,35 @@
     </div>
 
     <div class="kpi" style="padding:18px 20px;">
-      <div class="kpi-label">Средний CPL</div>
-      <div style="font-size:36px;font-weight:700;color:{% if meta.cpl <= 10 %}#22c55e{% elif meta.cpl <= 20 %}#f59e0b{% else %}#ef4444{% endif %};line-height:1;margin:6px 0 3px;">€{{ meta.cpl }}</div>
-      <div style="font-size:12px;color:#475569;">затраты / лиды</div>
+      <div class="kpi-label">Лиды Meta</div>
+      <div style="font-size:36px;font-weight:700;color:#22c55e;line-height:1;margin:6px 0 3px;">{{ meta.leads }}</div>
+      <div style="font-size:12px;color:#475569;">CPL €{{ meta.cpl }}</div>
+    </div>
+
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Лиды AmoCRM</div>
+      <div style="font-size:36px;font-weight:700;color:#818cf8;line-height:1;margin:6px 0 3px;">{% if meta.amo_leads is not none %}{{ meta.amo_leads }}{% else %}—{% endif %}</div>
+      <div style="font-size:12px;color:#475569;">CPL {% if meta.amo_cpl %}€{{ meta.amo_cpl }}{% else %}—{% endif %}</div>
     </div>
 
     <div class="kpi" style="padding:18px 20px;">
       <div class="kpi-label">Лучший CPL</div>
-      <div style="font-size:36px;font-weight:700;color:#818cf8;line-height:1;margin:6px 0 3px;">{% if meta.best_cpl %}€{{ meta.best_cpl }}{% else %}—{% endif %}</div>
+      <div style="font-size:36px;font-weight:700;color:#f59e0b;line-height:1;margin:6px 0 3px;">{% if meta.best_cpl %}€{{ meta.best_cpl }}{% else %}—{% endif %}</div>
       <div style="font-size:12px;color:#475569;">лучшая кампания</div>
     </div>
 
   </div>
+
+  <!-- Расхождение Meta vs AmoCRM -->
+  {% if meta.amo_leads is not none %}
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+    <span style="font-size:12px;color:#475569;">Расхождение Meta vs AmoCRM:</span>
+    <span style="font-size:15px;font-weight:700;color:{% if meta.leads - meta.amo_leads > 5 %}#f59e0b{% else %}#22c55e{% endif %};">
+      {{ meta.leads - meta.amo_leads }} лид{{ 'а' if (meta.leads - meta.amo_leads) in (2,3,4) else ('ов' if (meta.leads - meta.amo_leads) != 1 else '') }} не попали в CRM
+    </span>
+    <span style="font-size:12px;color:#475569;">({{ meta.leads }} Meta — {{ meta.amo_leads }} AmoCRM)</span>
+  </div>
+  {% endif %}
 
   <!-- Дополнительные метрики -->
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">

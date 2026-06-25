@@ -54,7 +54,7 @@ MONTH_ROMAN     = {1:'I',2:'II',3:'III',4:'IV',5:'V',6:'VI',
 TEAM = {
     'Даша':  {'work': 'Задачи Даша',    'backlog': 'Backlog_Даша'},
     'Алина': {'work': 'Алина_в работе', 'backlog': 'Backlog_Алина'},
-    'Елена': {'work': 'Елена_в работе', 'backlog': 'Елена_Backlog'},
+    'Саша':  {'work': 'Саша_в работе',  'backlog': None},
     'Люба':  {'work': 'Задачи Люба',    'backlog': None},
 }
 

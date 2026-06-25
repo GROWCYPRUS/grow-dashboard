@@ -13,6 +13,9 @@ AMO_TOKEN    = os.environ.get('AMO_TOKEN', '')
 AMO_DOMAIN   = 'infogrowbccom.amocrm.ru'
 AMO_PIPELINE = 7514314  # Продажи
 
+META_TOKEN   = os.environ.get('META_TOKEN', '')
+META_ACCOUNT = 'act_840654057640596'
+
 RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
 PAYMENTS_SHEET_ID  = '1h4zh7mFTKyfGUWOsyk1us9EfP379qd2P'
 PAYMENTS_GID       = '1169641494'
@@ -756,6 +759,91 @@ def fetch_attendance():
         import traceback
         return {'error': str(e), 'trace': traceback.format_exc()}
 
+# ── Meta Ads ──────────────────────────────────────────────
+def fetch_meta():
+    try:
+        if not META_TOKEN:
+            return {'error': 'META_TOKEN не задан'}
+
+        base = 'https://graph.facebook.com/v19.0'
+        fields = 'impressions,clicks,spend,cpm,cpc,actions,cost_per_action_type'
+
+        # Статистика за текущий месяц
+        r = requests.get(
+            f'{base}/{META_ACCOUNT}/insights',
+            params={
+                'fields':      fields,
+                'date_preset': 'this_month',
+                'access_token': META_TOKEN,
+            },
+            timeout=15
+        )
+        r.raise_for_status()
+        data = r.json().get('data', [])
+        if not data:
+            return {'error': 'Нет данных от Meta'}
+
+        d = data[0]
+        spend      = float(d.get('spend', 0))
+        impressions = int(d.get('impressions', 0))
+        clicks     = int(d.get('clicks', 0))
+        cpm        = float(d.get('cpm', 0))
+        cpc        = float(d.get('cpc', 0))
+
+        # Лиды из actions
+        actions = d.get('actions', [])
+        leads = next((int(a['value']) for a in actions if a['action_type'] == 'lead'), 0)
+
+        cpl = round(spend / leads, 2) if leads else 0
+
+        # Статистика по кампаниям
+        rc = requests.get(
+            f'{base}/{META_ACCOUNT}/insights',
+            params={
+                'fields':      'campaign_name,impressions,clicks,spend,actions',
+                'date_preset': 'this_month',
+                'level':       'campaign',
+                'access_token': META_TOKEN,
+            },
+            timeout=15
+        )
+        rc.raise_for_status()
+        campaigns_raw = rc.json().get('data', [])
+
+        campaigns = []
+        for c in campaigns_raw:
+            c_spend  = float(c.get('spend', 0))
+            c_actions = c.get('actions', [])
+            c_leads  = next((int(a['value']) for a in c_actions if a['action_type'] == 'lead'), 0)
+            c_cpl    = round(c_spend / c_leads, 2) if c_leads else None
+            campaigns.append({
+                'name':    c.get('campaign_name', ''),
+                'spend':   round(c_spend, 2),
+                'leads':   c_leads,
+                'clicks':  int(c.get('clicks', 0)),
+                'cpl':     c_cpl,
+            })
+
+        # Лучший CPL среди кампаний с лидами
+        with_leads = [c for c in campaigns if c['leads'] > 0]
+        best_cpl = min(with_leads, key=lambda x: x['cpl'])['cpl'] if with_leads else None
+
+        today = datetime.now()
+        return {
+            'month':       MONTH_NAMES_RU[today.month - 1],
+            'spend':       round(spend, 2),
+            'impressions': impressions,
+            'clicks':      clicks,
+            'leads':       leads,
+            'cpl':         cpl,
+            'best_cpl':    best_cpl,
+            'cpm':         round(cpm, 2),
+            'cpc':         round(cpc, 2),
+            'campaigns':   sorted(campaigns, key=lambda x: -x['leads']),
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
 # ── Routes ────────────────────────────────────────────────
 @app.route('/')
 def index():
@@ -765,13 +853,14 @@ def index():
         residents  = fetch_residents()
         attendance = fetch_attendance()
         budget     = fetch_budget()
+        meta       = fetch_meta()
         error      = None
     except Exception as e:
-        team, week, crm, residents, attendance, budget = {}, {}, None, None, None, None
+        team, week, crm, residents, attendance, budget, meta = {}, {}, None, None, None, None, None
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
-        attendance=attendance, budget=budget,
+        attendance=attendance, budget=budget, meta=meta,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )

@@ -136,6 +136,7 @@
   <div class="tab" onclick="switchTab('tasks', this)">📋 Задачи</div>
   <div class="tab" onclick="switchTab('crm', this)">🎯 CRM · Воронка</div>
   <div class="tab" onclick="switchTab('attendance', this)">📊 Посещаемость</div>
+  <div class="tab" onclick="switchTab('meta', this)">📣 Meta</div>
 </div>
 
 <!-- ══════════════ ЗАДАЧИ ══════════════ -->
@@ -622,6 +623,93 @@
 </div>
 
 {% endif %}
+
+<!-- ── Meta Ads ──────────────────────────────────────────── -->
+<div id="tab-meta" class="tab-content">
+
+{% if meta and meta.error is not defined %}
+
+  <div class="section-label">📣 Meta Ads · {{ meta.month }}</div>
+
+  <!-- KPI row -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
+
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Лидов</div>
+      <div style="font-size:36px;font-weight:700;color:#22c55e;line-height:1;margin:6px 0 3px;">{{ meta.leads }}</div>
+      <div style="font-size:12px;color:#475569;">за текущий месяц</div>
+    </div>
+
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Потрачено</div>
+      <div style="font-size:36px;font-weight:700;color:#f1f5f9;line-height:1;margin:6px 0 3px;">€{{ meta.spend }}</div>
+      <div style="font-size:12px;color:#475569;">бюджет месяца</div>
+    </div>
+
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Средний CPL</div>
+      <div style="font-size:36px;font-weight:700;color:{% if meta.cpl <= 10 %}#22c55e{% elif meta.cpl <= 20 %}#f59e0b{% else %}#ef4444{% endif %};line-height:1;margin:6px 0 3px;">€{{ meta.cpl }}</div>
+      <div style="font-size:12px;color:#475569;">затраты / лиды</div>
+    </div>
+
+    <div class="kpi" style="padding:18px 20px;">
+      <div class="kpi-label">Лучший CPL</div>
+      <div style="font-size:36px;font-weight:700;color:#818cf8;line-height:1;margin:6px 0 3px;">{% if meta.best_cpl %}€{{ meta.best_cpl }}{% else %}—{% endif %}</div>
+      <div style="font-size:12px;color:#475569;">лучшая кампания</div>
+    </div>
+
+  </div>
+
+  <!-- Дополнительные метрики -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
+
+    <div class="kpi" style="padding:16px 20px;">
+      <div class="kpi-label">Показы</div>
+      <div style="font-size:24px;font-weight:700;color:#94a3b8;line-height:1;margin:4px 0 2px;">{{ "{:,}".format(meta.impressions).replace(",", " ") }}</div>
+    </div>
+
+    <div class="kpi" style="padding:16px 20px;">
+      <div class="kpi-label">Клики</div>
+      <div style="font-size:24px;font-weight:700;color:#94a3b8;line-height:1;margin:4px 0 2px;">{{ meta.clicks }}</div>
+    </div>
+
+    <div class="kpi" style="padding:16px 20px;">
+      <div class="kpi-label">CPM / CPC</div>
+      <div style="font-size:24px;font-weight:700;color:#94a3b8;line-height:1;margin:4px 0 2px;">€{{ meta.cpm }} / €{{ meta.cpc }}</div>
+    </div>
+
+  </div>
+
+  <!-- Кампании -->
+  {% if meta.campaigns %}
+  <div class="section-label">Кампании</div>
+  <div class="funnel-box" style="margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:12px;padding:8px 0;border-bottom:1px solid #334155;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#475569;text-transform:uppercase;">Кампания</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#475569;text-transform:uppercase;text-align:right;min-width:60px;">Лиды</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#475569;text-transform:uppercase;text-align:right;min-width:70px;">Потрачено</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#475569;text-transform:uppercase;text-align:right;min-width:60px;">Клики</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#475569;text-transform:uppercase;text-align:right;min-width:70px;">CPL</div>
+    </div>
+    {% for c in meta.campaigns %}
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #13172a;">
+      <div style="font-size:13px;color:#cbd5e1;">{{ c.name }}</div>
+      <div style="font-size:13px;font-weight:700;color:#22c55e;text-align:right;min-width:60px;">{{ c.leads }}</div>
+      <div style="font-size:13px;color:#94a3b8;text-align:right;min-width:70px;">€{{ c.spend }}</div>
+      <div style="font-size:13px;color:#94a3b8;text-align:right;min-width:60px;">{{ c.clicks }}</div>
+      <div style="font-size:13px;font-weight:700;text-align:right;min-width:70px;color:{% if c.cpl and c.cpl <= 10 %}#22c55e{% elif c.cpl and c.cpl <= 20 %}#f59e0b{% else %}#ef4444{% endif %};">{% if c.cpl %}€{{ c.cpl }}{% else %}—{% endif %}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+{% elif meta and meta.error is defined %}
+  <div class="crm-error">Ошибка Meta: {{ meta.error }}</div>
+{% else %}
+  <div class="crm-error">Данные не загружены</div>
+{% endif %}
+
+</div>
 
 <script>
 function switchTab(name, el) {

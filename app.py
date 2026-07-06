@@ -367,9 +367,16 @@ def fetch_residents():
         week_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
         week_end   = week_start + timedelta(days=7)
 
+        # Находим колонку с именем гибко (может быть пробел в конце)
+        bday_name_col = next(
+            (k for k in (bday_rows[0].keys() if bday_rows else [])
+             if 'фамили' in k.lower() or 'имя' in k.lower()),
+            'Фамилия и Имя'
+        )
+
         birthdays_week = []
         for b in bday_rows:
-            name = b.get('Фамилия и Имя', '').strip()
+            name = b.get(bday_name_col, '').strip()
             if not name:
                 continue
 

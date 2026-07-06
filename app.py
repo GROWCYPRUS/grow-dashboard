@@ -900,15 +900,52 @@ def index():
 @app.route('/debug-bdays')
 def debug_bdays():
     try:
-        rows = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Д/Р')
+        from datetime import datetime, timedelta
+        rows  = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Д/Р')
         if not rows:
             return 'Лист Д/Р пустой или не найден'
+
+        today      = datetime.now()
+        week_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_end   = week_start + timedelta(days=7)
+
         headers = list(rows[0].keys())
-        sample  = rows[:5]
-        return f'<pre>Колонки: {headers}\n\nПервые 5 строк:\n' + \
-               '\n'.join(str(r) for r in sample) + '</pre>'
+        dr_col  = next((k for k in headers if 'в этом году' in k.lower()), None)
+        dm_col  = next((k for k in headers if 'день' in k.lower() and 'месяц' in k.lower()), None)
+
+        lines = [
+            f'Сегодня: {today.date()}',
+            f'Период: {week_start.date()} — {week_end.date()}',
+            f'Колонки: {headers}',
+            f'dr_col (ДР в этом году): {dr_col}',
+            f'dm_col (День.Месяц): {dm_col}',
+            '',
+            '=== Июльские строки ===',
+        ]
+
+        for b in rows:
+            name = b.get('Фамилия и Имя', '').strip()
+            raw  = b.get(dr_col, '').strip() if dr_col else ''
+            if not raw:
+                raw = b.get(dm_col, '').strip() if dm_col else ''
+            month_txt = b.get('Месяц (текст)', '').strip().lower()
+            if 'июл' not in month_txt and '07' not in raw:
+                continue
+            lines.append(f'{name} | raw={repr(raw)} | месяц={month_txt}')
+            try:
+                parts = raw.replace('/', '.').split('.')
+                day   = int(parts[0])
+                month = int(parts[1])
+                bday  = datetime(today.year, month, day)
+                inrange = week_start.date() <= bday.date() <= week_end.date()
+                lines.append(f'  → day={day} month={month} bday={bday.date()} in_range={inrange}')
+            except Exception as ex:
+                lines.append(f'  → ОШИБКА ПАРСИНГА: {ex}')
+
+        return '<pre>' + '\n'.join(lines) + '</pre>'
     except Exception as e:
-        return f'Ошибка: {e}'
+        import traceback
+        return f'<pre>Ошибка: {e}\n{traceback.format_exc()}</pre>'
 
 @app.route('/api')
 def api():

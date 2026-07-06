@@ -364,8 +364,8 @@ def fetch_residents():
         bday_rows = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Д/Р')
 
         today      = datetime.now()
-        week_start = (today - timedelta(days=today.weekday())).replace(hour=0, minute=0, second=0)
-        week_end   = week_start + timedelta(days=6, hours=23, minutes=59)
+        week_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_end   = week_start + timedelta(days=7)
 
         birthdays_week = []
         for b in bday_rows:

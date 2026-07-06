@@ -884,6 +884,19 @@ def index():
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )
 
+@app.route('/debug-bdays')
+def debug_bdays():
+    try:
+        rows = fetch_gsheet_csv(RESIDENTS_SHEET_ID, 'Д/Р')
+        if not rows:
+            return 'Лист Д/Р пустой или не найден'
+        headers = list(rows[0].keys())
+        sample  = rows[:5]
+        return f'<pre>Колонки: {headers}\n\nПервые 5 строк:\n' + \
+               '\n'.join(str(r) for r in sample) + '</pre>'
+    except Exception as e:
+        return f'Ошибка: {e}'
+
 @app.route('/api')
 def api():
     try:

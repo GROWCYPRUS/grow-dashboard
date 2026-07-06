@@ -369,7 +369,8 @@ def fetch_residents():
 
         birthdays_week = []
         for b in bday_rows:
-            day_month = b.get('День.Месяц', '').strip()
+            day_month_col = next((k for k in b.keys() if 'день' in k.lower() and 'месяц' in k.lower()), None)
+            day_month = b.get(day_month_col, '').strip() if day_month_col else ''
             name      = b.get('Фамилия и Имя', '').strip()
             if not day_month or not name or '.' not in day_month:
                 continue

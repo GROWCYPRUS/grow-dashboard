@@ -369,16 +369,29 @@ def fetch_residents():
 
         birthdays_week = []
         for b in bday_rows:
-            day_month_col = next((k for k in b.keys() if 'день' in k.lower() and 'месяц' in k.lower()), None)
-            day_month = b.get(day_month_col, '').strip() if day_month_col else ''
-            name      = b.get('Фамилия и Имя', '').strip()
-            if not day_month or not name or '.' not in day_month:
+            name = b.get('Фамилия и Имя', '').strip()
+            if not name:
                 continue
+
+            # Пробуем «ДР в этом году» (DD.MM.YYYY), потом «День.Месяц» (DD.MM)
+            dr_col = next((k for k in b.keys() if 'в этом году' in k.lower()), None)
+            dm_col = next((k for k in b.keys() if 'день' in k.lower() and 'месяц' in k.lower()), None)
+
+            raw = ''
+            if dr_col:
+                raw = b.get(dr_col, '').strip()
+            if not raw and dm_col:
+                raw = b.get(dm_col, '').strip()
+            if not raw or '.' not in raw:
+                continue
+
             try:
-                parts = day_month.split('.')
+                parts = raw.replace('/', '.').split('.')
                 day   = int(parts[0])
                 month = int(parts[1])
-                bday  = datetime(today.year, month, day)
+                if day == 0 or month == 0:
+                    continue
+                bday = datetime(today.year, month, day)
                 if week_start.date() <= bday.date() <= week_end.date():
                     months_ru = ['января','февраля','марта','апреля','мая','июня',
                                  'июля','августа','сентября','октября','ноября','декабря']

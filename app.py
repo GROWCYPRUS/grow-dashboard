@@ -1004,6 +1004,37 @@ def debug_bdays():
         import traceback
         return f'<pre>Ошибка: {e}\n{traceback.format_exc()}</pre>'
 
+@app.route('/debug-payments')
+def debug_payments():
+    try:
+        rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, gid=PAYMENTS_GID)
+        if not rows:
+            return '<pre>Таблица пустая</pre>'
+
+        headers = list(rows[0].keys())
+        today_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        lines = [
+            f'Колонки: {headers}',
+            f'Сегодня: {today_dt.date()}',
+            f'Всего строк: {len(rows)}',
+            '',
+            '=== Active резиденты (первые 10) ===',
+        ]
+
+        active = [r for r in rows if r.get('Статус', '').strip() == 'Active']
+        for r in active[:10]:
+            nd  = r.get('Следующая дата оплаты', 'НЕТ КОЛОНКИ')
+            od  = r.get('Дней просрочки', 'НЕТ КОЛОНКИ')
+            mem = r.get('Членство', '')
+            lines.append(f'  Членство={mem!r} | Следующая дата={nd!r} | Дней просрочки={od!r}')
+
+        lines += ['', f'Active строк: {len(active)}']
+        return '<pre>' + '\n'.join(lines) + '</pre>'
+    except Exception as e:
+        import traceback
+        return f'<pre>Ошибка: {e}\n{traceback.format_exc()}</pre>'
+
 @app.route('/api')
 def api():
     try:

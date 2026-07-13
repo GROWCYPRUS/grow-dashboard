@@ -717,7 +717,7 @@ def fetch_attendance():
         # Средняя явка и лучший ивент (только у ивентов с посещаемостью)
         done_events = [e for e in events if e['attended'] > 0]
         avg_pct     = round(sum(e['pct_reg'] for e in done_events) / len(done_events)) if done_events else 0
-        top_event   = max(done_events, key=lambda x: x['pct_reg'])['name'].split(' ', 1)[1] if done_events else '—'
+        top_event   = max(done_events, key=lambda x: x['attended'])['name'].split(' ', 1)[1] if done_events else '—'
 
         # ── 3. Статус резидентов из Сводной ───────────────────
         summary_rows = fetch_gsheet_csv(sheet_info['id'], gid=sheet_info['gid'])

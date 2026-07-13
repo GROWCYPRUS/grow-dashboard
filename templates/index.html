@@ -382,6 +382,41 @@
   <div class="card"><div class="empty" style="padding:16px;text-align:center;">На этой неделе именинников нет 🎉</div></div>
   {% endif %}
 
+  <!-- Скоро оплата / Просрочка -->
+  {% if residents.upcoming_payments %}
+  <div class="section-label">⚠️ Скоро оплата · ближайшие 30 дней</div>
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:28px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr>
+          <th style="padding:10px 14px;text-align:left;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #334155;">Резидент</th>
+          <th style="padding:10px 14px;text-align:left;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #334155;">Следующая оплата</th>
+          <th style="padding:10px 14px;text-align:right;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #334155;">Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in residents.upcoming_payments %}
+        <tr style="border-bottom:1px solid #13172a;">
+          <td style="padding:9px 14px;color:#e2e8f0;font-weight:500;">{{ p.name }}</td>
+          <td style="padding:9px 14px;color:#94a3b8;">{{ p.next_date if p.next_date else '—' }}</td>
+          <td style="padding:9px 14px;text-align:right;">
+            {% if p.overdue > 0 %}
+            <span style="color:#ef4444;font-weight:700;">Просрочка {{ p.overdue }} дн.</span>
+            {% elif p.days_until == 0 %}
+            <span style="color:#f59e0b;font-weight:700;">Сегодня</span>
+            {% elif p.days_until <= 7 %}
+            <span style="color:#f59e0b;font-weight:700;">{{ p.days_until }} дн.</span>
+            {% else %}
+            <span style="color:#94a3b8;">{{ p.days_until }} дн.</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
   <!-- Главная цифра + статусы -->
   <div class="section-label">Состав клуба</div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:28px;">

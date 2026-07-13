@@ -418,6 +418,18 @@ def fetch_residents():
         total_paying  = 0.0
         total_paid_ok = 0.0
 
+        # Находим колонку с именем в таблице оплат
+        pay_name_col = None
+        if pay_rows:
+            for k in pay_rows[0].keys():
+                kl = k.lower()
+                if 'фамили' in kl or ('имя' in kl and 'членство' not in kl) or 'фио' in kl:
+                    pay_name_col = k
+                    break
+
+        today_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        upcoming_payments = []
+
         for row in pay_rows:
             status     = row.get('Статус', '').strip()
             membership = row.get('Членство', '').strip()
@@ -433,6 +445,43 @@ def fetch_residents():
             total_paying += weight
             if pay_status == 'OK':
                 total_paid_ok += weight
+
+            # Проверяем скоро оплата / просрочка
+            name = row.get(pay_name_col, '').strip() if pay_name_col else ''
+            if not name:
+                continue
+
+            next_date_str = row.get('Следующая дата оплаты', '').strip()
+            overdue_raw   = row.get('Дней просрочки', '').strip()
+
+            overdue = 0
+            try:
+                overdue = int(float(overdue_raw)) if overdue_raw else 0
+            except (ValueError, TypeError):
+                overdue = 0
+
+            days_until = None
+            if next_date_str:
+                for fmt_str in ('%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y'):
+                    try:
+                        nd = datetime.strptime(next_date_str, fmt_str)
+                        days_until = (nd.replace(hour=0, minute=0, second=0, microsecond=0) - today_dt).days
+                        break
+                    except ValueError:
+                        continue
+
+            if overdue > 0 or (days_until is not None and days_until <= 30):
+                upcoming_payments.append({
+                    'name':       name,
+                    'next_date':  next_date_str,
+                    'overdue':    overdue,
+                    'days_until': days_until,
+                })
+
+        upcoming_payments.sort(key=lambda x: (
+            0 if x['overdue'] > 0 else 1,
+            x['days_until'] if x['days_until'] is not None else 999
+        ))
 
         def fmt(n):
             return int(n) if n == int(n) else n
@@ -453,17 +502,18 @@ def fetch_residents():
         ]
 
         return {
-            'total':          total,
-            'status_counts':  dict(status_counts),
-            'birthdays_week': birthdays_week,
-            'paying':         fmt(total_paying),
-            'paid_ok':        fmt(total_paid_ok),
-            'not_paid':       fmt(total_paying - total_paid_ok),
-            'current_q':      current_q,
-            'current_goal':   current_goal,
-            'gap_to_goal':    fmt(gap) if gap > 0 else 0,
-            'pct_to_goal':    pct_to_goal,
-            'quarters':       quarters,
+            'total':              total,
+            'status_counts':      dict(status_counts),
+            'birthdays_week':     birthdays_week,
+            'paying':             fmt(total_paying),
+            'paid_ok':            fmt(total_paid_ok),
+            'not_paid':           fmt(total_paying - total_paid_ok),
+            'current_q':          current_q,
+            'current_goal':       current_goal,
+            'gap_to_goal':        fmt(gap) if gap > 0 else 0,
+            'pct_to_goal':        pct_to_goal,
+            'quarters':           quarters,
+            'upcoming_payments':  upcoming_payments,
         }
     except Exception as e:
         return {'error': str(e)}

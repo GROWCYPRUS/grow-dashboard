@@ -418,14 +418,19 @@ def fetch_residents():
         total_paying  = 0.0
         total_paid_ok = 0.0
 
-        # Находим колонку с именем в таблице оплат
-        pay_name_col = None
+        # Находим колонки с именем/фамилией в таблице оплат
+        pay_name_col    = None
+        pay_surname_col = None
+        pay_fio_col     = None
         if pay_rows:
             for k in pay_rows[0].keys():
                 kl = k.lower()
-                if 'фамили' in kl or ('имя' in kl and 'членство' not in kl) or 'фио' in kl:
+                if 'фио' in kl or ('фамили' in kl and 'имя' in kl):
+                    pay_fio_col = k
+                elif 'фамили' in kl:
+                    pay_surname_col = k
+                elif 'имя' in kl and 'членство' not in kl:
                     pay_name_col = k
-                    break
 
         today_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         upcoming_payments = []
@@ -447,7 +452,14 @@ def fetch_residents():
                 total_paid_ok += weight
 
             # Проверяем скоро оплата / просрочка
-            name = row.get(pay_name_col, '').strip() if pay_name_col else ''
+            if pay_fio_col:
+                name = row.get(pay_fio_col, '').strip()
+            elif pay_surname_col or pay_name_col:
+                surname = row.get(pay_surname_col, '').strip() if pay_surname_col else ''
+                fname   = row.get(pay_name_col, '').strip() if pay_name_col else ''
+                name    = f'{surname} {fname}'.strip()
+            else:
+                name = ''
             if not name:
                 continue
 

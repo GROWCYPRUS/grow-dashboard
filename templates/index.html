@@ -251,7 +251,7 @@
       <div style="font-size:13px;color:#fde68a;line-height:1.5;">
         <strong>{{ s.count }} {{ 'лид' if s.count == 1 else ('лида' if s.count < 5 else 'лидов') }}</strong>
         зависл{{ 'и' if s.count != 1 else '' }} на «{{ s.stage }}» —
-        {{ s.days }} без движения — нужен прозвон
+        {{ s.days }} — просрочена задача
       </div>
     </div>
     {% endfor %}

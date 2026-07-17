@@ -413,7 +413,7 @@ def fetch_monthly_paying():
 
         today = datetime.now()
         result = []
-        for year in range(2024, today.year + 1):
+        for year in range(2025, today.year + 1):
             for month in range(1, 13):
                 if year == today.year and month > today.month:
                     break

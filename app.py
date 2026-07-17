@@ -420,19 +420,20 @@ def fetch_monthly_paying():
                 last_day  = _cal.monthrange(year, month)[1]
                 month_end = datetime(year, month, last_day)
                 count = len({rid for rid, s, e in payments if s <= month_end and e >= month_end})
-                    # Реально оплатили в этом месяце (новый платёж пришёл)
-            paid_in_month = len({rid for rid, s, e in payments
-                                 if s.year == year and s.month == month})
-            result.append({
+                paid_in_month = len({rid for rid, s, e in payments
+                                     if s.year == year and s.month == month})
+                result.append({
                     'label':  f"{['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][month-1]} {str(year)[2:]}",
                     'count':  count,
                     'paid':   paid_in_month,
                     'year':   year,
                     'month':  month,
                 })
-        return result
+        max_val = max((m['count'] for m in result), default=1)
+        max_val = max(max_val, max((m['paid'] for m in result), default=1))
+        return result, max_val
     except Exception:
-        return []
+        return [], 1
 
 def fetch_residents():
     try:
@@ -1053,15 +1054,15 @@ def index():
         attendance  = fetch_attendance()
         budget      = fetch_budget()
         meta        = fetch_meta()
-        pay_dynamic = fetch_monthly_paying()
+        pay_dynamic, pay_max = fetch_monthly_paying()
         error       = None
     except Exception as e:
-        team, week, crm, residents, attendance, budget, meta, pay_dynamic = {}, {}, None, None, None, None, None, []
+        team, week, crm, residents, attendance, budget, meta, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, [], 1
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
         attendance=attendance, budget=budget, meta=meta,
-        pay_dynamic=pay_dynamic,
+        pay_dynamic=pay_dynamic, pay_max=pay_max,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )

@@ -384,27 +384,26 @@
 
   <!-- Динамика платящих по месяцам (2025–2026) -->
   {% if pay_dynamic %}
-  {% set max_val = [pay_dynamic | map(attribute='count') | max, pay_dynamic | map(attribute='paid') | max] | max %}
   <div class="section-label">📈 Платящие резиденты · динамика</div>
   <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 20px 10px;margin-bottom:28px;">
     <div style="display:flex;gap:20px;margin-bottom:14px;">
       <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;">
-        <div style="width:12px;height:12px;border-radius:2px;background:#4f46e5;flex-shrink:0;"></div> Активных платящих
+        <div style="width:12px;height:12px;border-radius:2px;background:#2738EA;flex-shrink:0;"></div> Активных платящих
       </div>
       <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;">
-        <div style="width:12px;height:12px;border-radius:2px;background:#16a34a;flex-shrink:0;"></div> Оплатили в месяц
+        <div style="width:12px;height:12px;border-radius:2px;background:#D7FF4E;flex-shrink:0;"></div> Оплатили в месяц
       </div>
     </div>
-    <div style="display:flex;align-items:flex-end;gap:4px;height:150px;padding-bottom:24px;box-sizing:border-box;">
+    <div style="display:flex;align-items:flex-end;gap:3px;height:160px;overflow-x:auto;">
       {% for m in pay_dynamic %}
-      {% set h1 = ((m.count / max_val) * 110) | int if max_val > 0 else 0 %}
-      {% set h2 = ((m.paid  / max_val) * 110) | int if max_val > 0 else 0 %}
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;min-width:0;height:100%;position:relative;">
+      {% set h1 = ((m.count / pay_max) * 120) | int if pay_max > 0 else 0 %}
+      {% set h2 = ((m.paid  / pay_max) * 120) | int if pay_max > 0 else 0 %}
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;min-width:22px;">
         <div style="display:flex;align-items:flex-end;gap:1px;width:100%;">
-          <div style="flex:1;height:{{ h1 }}px;background:{% if loop.last %}#818cf8{% else %}#4f46e5{% endif %};border-radius:3px 3px 0 0;"></div>
-          <div style="flex:1;height:{{ h2 }}px;background:#16a34a;border-radius:3px 3px 0 0;"></div>
+          <div style="flex:1;height:{{ h1 }}px;background:#2738EA;border-radius:2px 2px 0 0;" title="{{ m.label }}: {{ m.count }} активных"></div>
+          <div style="flex:1;height:{{ h2 }}px;background:#D7FF4E;border-radius:2px 2px 0 0;" title="{{ m.label }}: {{ m.paid }} оплатили"></div>
         </div>
-        <div style="font-size:8px;color:#475569;margin-top:4px;text-align:center;width:100%;white-space:nowrap;overflow:hidden;">{{ m.label }}</div>
+        <div style="font-size:7px;color:#475569;margin-top:3px;text-align:center;white-space:nowrap;">{{ m.label }}</div>
       </div>
       {% endfor %}
     </div>

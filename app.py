@@ -243,19 +243,24 @@ def fetch_crm():
         # 1. Загружаем карту этапов
         status_map, _ = fetch_pipelines()
 
-        # ID этапов которые исключаем полностью (Архив и системные закрытые)
-        ARCHIVE_STAGES = {
-            sid for sid, info in status_map.items()
-            if info.get('pipeline_id') == AMO_PIPELINE
-            and 'архив' in info.get('name', '').lower()
-        }
-        CLOSED = {142, 143} | ARCHIVE_STAGES
+        CLOSED = {142, 143}
+
+        # Имена этапов которые исключаем полностью
+        EXCLUDE_STAGE_NAMES = {'архив'}
 
         # 2. Только лиды из воронки Продажи
-        leads  = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
+        leads = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
 
-        # Активные (без закрытых и без Архива)
-        active_leads = [l for l in leads if l['status_id'] not in CLOSED]
+        # Активные: без системных закрытых и без этапов-исключений (Архив)
+        def stage_name_of(lead):
+            info = status_map.get(lead['status_id'])
+            return (info['name'] if info else '').lower()
+
+        active_leads = [
+            l for l in leads
+            if l['status_id'] not in CLOSED
+            and stage_name_of(l) not in EXCLUDE_STAGE_NAMES
+        ]
         active_total = len(active_leads)
 
         # 3. Новые за текущий месяц
@@ -291,6 +296,7 @@ def fetch_crm():
         STUCK_EXCLUDE = {
             'резидент',
             '3 касания без вовлечения',
+            'архив',
         }
 
         # Индекс активных лидов по ID

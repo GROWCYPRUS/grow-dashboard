@@ -243,11 +243,18 @@ def fetch_crm():
         # 1. Загружаем карту этапов
         status_map, _ = fetch_pipelines()
 
+        # ID этапов которые исключаем полностью (Архив и системные закрытые)
+        ARCHIVE_STAGES = {
+            sid for sid, info in status_map.items()
+            if info.get('pipeline_id') == AMO_PIPELINE
+            and 'архив' in info.get('name', '').lower()
+        }
+        CLOSED = {142, 143} | ARCHIVE_STAGES
+
         # 2. Только лиды из воронки Продажи
         leads  = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
-        CLOSED = {142, 143}
 
-        # Активные (без закрытых)
+        # Активные (без закрытых и без Архива)
         active_leads = [l for l in leads if l['status_id'] not in CLOSED]
         active_total = len(active_leads)
 
@@ -280,21 +287,49 @@ def fetch_crm():
             'total':    active_total,
         }]
 
-        # 5. Зависшие — только из Продажи
+        # 5. Просроченные задачи — из активных лидов Продажи
         STUCK_EXCLUDE = {
             'резидент',
             '3 касания без вовлечения',
         }
 
+        # Индекс активных лидов по ID
+        active_lead_ids = {l['id'] for l in active_leads}
+
+        # Загружаем просроченные незавершённые задачи
+        overdue_tasks = []
+        try:
+            page = 1
+            while True:
+                data  = amo('/tasks', page=page, limit=250,
+                            **{'filter[is_completed]': 0,
+                               'filter[complete_till][to]': now_ts,
+                               'filter[entity_type]': 'leads'})
+                tasks = data.get('_embedded', {}).get('tasks', [])
+                if not tasks:
+                    break
+                overdue_tasks.extend(tasks)
+                if len(tasks) < 250:
+                    break
+                page += 1
+        except Exception:
+            pass
+
         stuck_by_stage = defaultdict(list)
-        for l in active_leads:
-            days = (now_ts - l.get('updated_at', now_ts)) // 86400
-            if days >= 7:
-                info       = status_map.get(l['status_id'])
-                stage_name = info['name'] if info else f'Этап {l["status_id"]}'
-                if stage_name.lower() in STUCK_EXCLUDE:
-                    continue
-                stuck_by_stage[stage_name].append(days)
+        for task in overdue_tasks:
+            lead_id = task.get('entity_id')
+            if lead_id not in active_lead_ids:
+                continue
+            # Находим лид и его этап
+            lead = next((l for l in active_leads if l['id'] == lead_id), None)
+            if not lead:
+                continue
+            info       = status_map.get(lead['status_id'])
+            stage_name = info['name'] if info else f'Этап {lead["status_id"]}'
+            if stage_name.lower() in STUCK_EXCLUDE:
+                continue
+            days_overdue = (now_ts - task.get('complete_till', now_ts)) // 86400
+            stuck_by_stage[stage_name].append(days_overdue)
 
         stuck_summary = []
         total_stuck   = 0
@@ -302,7 +337,7 @@ def fetch_crm():
             cnt      = len(days_list)
             total_stuck += cnt
             min_days, max_days = min(days_list), max(days_list)
-            days_str = f'{min_days} дней' if min_days == max_days else f'{min_days}–{max_days} дней'
+            days_str = f'{min_days} дн.' if min_days == max_days else f'{min_days}–{max_days} дн.'
             stuck_summary.append({'stage': stage_name, 'count': cnt, 'days': days_str})
 
         return {

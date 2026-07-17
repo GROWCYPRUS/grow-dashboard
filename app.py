@@ -1057,6 +1057,15 @@ def index():
         budget      = fetch_budget()
         meta        = fetch_meta()
         pay_dynamic, pay_max = fetch_monthly_paying()
+        # Текущий месяц — берём цифры из листа статусов (те же, что вверху)
+        if pay_dynamic and residents and not residents.get('error'):
+            today_now = datetime.now()
+            last = pay_dynamic[-1]
+            if last['year'] == today_now.year and last['month'] == today_now.month:
+                last['count'] = int(residents.get('paying', last['count']))
+                last['paid']  = int(residents.get('paid_ok', last['paid']))
+            pay_max = max((m['count'] for m in pay_dynamic), default=1)
+            pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None
     except Exception as e:
         team, week, crm, residents, attendance, budget, meta, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, [], 1

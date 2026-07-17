@@ -333,17 +333,26 @@ def fetch_crm():
             stage_name = info['name'] if info else f'Этап {lead["status_id"]}'
             if stage_name.lower() in STUCK_EXCLUDE:
                 continue
-            days_overdue = (now_ts - task.get('complete_till', now_ts)) // 86400
-            stuck_by_stage[stage_name].append(days_overdue)
+            seconds_overdue = now_ts - task.get('complete_till', now_ts)
+            hours_overdue   = seconds_overdue // 3600
+            if hours_overdue < 3:
+                continue  # порог — 3 часа
+            stuck_by_stage[stage_name].append(hours_overdue)
+
+        def fmt_overdue(hours):
+            if hours < 24:
+                return f'{hours} ч.'
+            days = hours // 24
+            return f'{days} дн.'
 
         stuck_summary = []
         total_stuck   = 0
-        for stage_name, days_list in sorted(stuck_by_stage.items(), key=lambda x: -len(x[1])):
-            cnt      = len(days_list)
-            total_stuck += cnt
-            min_days, max_days = min(days_list), max(days_list)
-            days_str = f'{min_days} дн.' if min_days == max_days else f'{min_days}–{max_days} дн.'
-            stuck_summary.append({'stage': stage_name, 'count': cnt, 'days': days_str})
+        for stage_name, hours_list in sorted(stuck_by_stage.items(), key=lambda x: -len(x[1])):
+            cnt           = len(hours_list)
+            total_stuck  += cnt
+            min_h, max_h  = min(hours_list), max(hours_list)
+            time_str = fmt_overdue(min_h) if min_h == max_h else f'{fmt_overdue(min_h)}–{fmt_overdue(max_h)}'
+            stuck_summary.append({'stage': stage_name, 'count': cnt, 'days': time_str})
 
         return {
             'grand_total':     active_total,

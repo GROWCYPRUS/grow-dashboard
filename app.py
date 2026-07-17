@@ -419,13 +419,14 @@ def fetch_monthly_paying():
                     break
                 last_day  = _cal.monthrange(year, month)[1]
                 month_end = datetime(year, month, last_day)
+                # Активны на конец месяца: период покрывает последний день
                 count = len({rid for rid, s, e in payments if s <= month_end and e >= month_end})
-                paid_in_month = len({rid for rid, s, e in payments
-                                     if s.year == year and s.month == month})
+                # Всего уникальных оплативших накопительно к этой дате
+                ever_paid = len({rid for rid, s, e in payments if s <= month_end})
                 result.append({
                     'label':  f"{['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][month-1]} {str(year)[2:]}",
                     'count':  count,
-                    'paid':   paid_in_month,
+                    'paid':   ever_paid,
                     'year':   year,
                     'month':  month,
                 })

@@ -413,7 +413,7 @@ def fetch_monthly_paying():
 
         today = datetime.now()
         result = []
-        for year in range(2025, today.year + 1):
+        for year in range(2026, today.year + 1):
             for month in range(1, 13):
                 if year == today.year and month > today.month:
                     break
@@ -1116,6 +1116,24 @@ def debug_bdays():
     except Exception as e:
         import traceback
         return f'<pre>Ошибка: {e}\n{traceback.format_exc()}</pre>'
+
+@app.route('/debug-dynamic')
+def debug_dynamic():
+    try:
+        rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, sheet_name='Платежи')
+        if not rows:
+            return '<pre>Таблица Платежи пустая</pre>'
+        lines = [f'Колонки: {list(rows[0].keys())}', f'Всего строк: {len(rows)}', '']
+        for r in rows[:5]:
+            lines.append(str(dict(r)))
+        data, mx = fetch_monthly_paying()
+        lines += ['', f'=== Динамика (max={mx}) ===']
+        for m in data:
+            lines.append(f"  {m['label']}: активных={m['count']}, оплатили={m['paid']}")
+        return '<pre>' + '\n'.join(lines) + '</pre>'
+    except Exception as e:
+        import traceback
+        return f'<pre>{e}\n{traceback.format_exc()}</pre>'
 
 @app.route('/debug-payments')
 def debug_payments():

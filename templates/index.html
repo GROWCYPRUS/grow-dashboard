@@ -417,6 +417,29 @@
   </div>
   {% endif %}
 
+  <!-- Динамика платящих по месяцам -->
+  {% if pay_dynamic %}
+  <div class="section-label">📈 Платящие резиденты · динамика по месяцам</div>
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 20px 12px;margin-bottom:28px;">
+    {% set max_count = pay_dynamic | map(attribute='count') | max %}
+    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;overflow-x:auto;padding-bottom:4px;">
+      {% for m in pay_dynamic %}
+      {% set bar_h = ((m.count / max_count) * 100) | int if max_count > 0 else 0 %}
+      {% set is_curr = (m.year == now.year and m.month == now.month) if now is defined else false %}
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:36px;flex:1;">
+        <div style="font-size:10px;color:#6366f1;font-weight:700;">{{ m.count if m.count > 0 else '' }}</div>
+        <div style="width:100%;background:{% if loop.last %}#6366f1{% else %}#334155{% endif %};border-radius:4px 4px 0 0;height:{{ bar_h }}%;min-height:{% if m.count > 0 %}4{% else %}0{% endif %}px;transition:height 0.3s;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      {% for m in pay_dynamic %}
+      <div style="min-width:36px;flex:1;text-align:center;font-size:9px;color:#475569;white-space:nowrap;overflow:hidden;">{{ m.label }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Главная цифра + статусы -->
   <div class="section-label">Состав клуба</div>
   <div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-bottom:28px;">

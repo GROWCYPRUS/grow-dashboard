@@ -385,6 +385,51 @@ def fetch_gsheet_csv(sheet_id, sheet_name=None, gid=None):
     reader = csv.DictReader(io.StringIO(r.text))
     return list(reader)
 
+def fetch_monthly_paying():
+    """Считает платящих резидентов на конец каждого месяца из вкладки Платежи"""
+    try:
+        import calendar as _cal
+        rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, sheet_name='Платежи')
+        if not rows:
+            return []
+
+        def parse_dt(s):
+            for fmt in ('%d.%m.%Y', '%Y-%m-%d'):
+                try:
+                    return datetime.strptime((s or '').strip(), fmt)
+                except Exception:
+                    continue
+            return None
+
+        payments = []
+        for row in rows:
+            start_raw = row.get('Начало периода ', '') or row.get('Начало периода', '')
+            end_raw   = row.get('Конец периода', '')
+            rid       = row.get('ID резидента', '').strip()
+            start = parse_dt(start_raw)
+            end   = parse_dt(end_raw)
+            if start and end and rid:
+                payments.append((rid, start, end))
+
+        today = datetime.now()
+        result = []
+        for year in range(2024, today.year + 1):
+            for month in range(1, 13):
+                if year == today.year and month > today.month:
+                    break
+                last_day  = _cal.monthrange(year, month)[1]
+                month_end = datetime(year, month, last_day)
+                count = len({rid for rid, s, e in payments if s <= month_end and e >= month_end})
+                result.append({
+                    'label': f"{['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][month-1]} {str(year)[2:]}",
+                    'count': count,
+                    'year':  year,
+                    'month': month,
+                })
+        return result
+    except Exception:
+        return []
+
 def fetch_residents():
     try:
         from collections import Counter
@@ -998,19 +1043,21 @@ def fetch_meta():
 @app.route('/')
 def index():
     try:
-        team, week = fetch_trello()
-        crm        = fetch_crm()
-        residents  = fetch_residents()
-        attendance = fetch_attendance()
-        budget     = fetch_budget()
-        meta       = fetch_meta()
-        error      = None
+        team, week  = fetch_trello()
+        crm         = fetch_crm()
+        residents   = fetch_residents()
+        attendance  = fetch_attendance()
+        budget      = fetch_budget()
+        meta        = fetch_meta()
+        pay_dynamic = fetch_monthly_paying()
+        error       = None
     except Exception as e:
-        team, week, crm, residents, attendance, budget, meta = {}, {}, None, None, None, None, None
+        team, week, crm, residents, attendance, budget, meta, pay_dynamic = {}, {}, None, None, None, None, None, []
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
         attendance=attendance, budget=budget, meta=meta,
+        pay_dynamic=pay_dynamic,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )

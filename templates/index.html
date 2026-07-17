@@ -394,16 +394,26 @@
         <div style="width:12px;height:12px;border-radius:2px;background:#D7FF4E;flex-shrink:0;"></div> Оплатили в месяц
       </div>
     </div>
-    <div style="display:flex;align-items:flex-end;gap:3px;height:160px;overflow-x:auto;">
+    <div style="display:flex;align-items:flex-end;gap:3px;height:190px;overflow-x:auto;padding-bottom:2px;">
       {% for m in pay_dynamic %}
       {% set h1 = ((m.count / pay_max) * 120) | int if pay_max > 0 else 0 %}
       {% set h2 = ((m.paid  / pay_max) * 120) | int if pay_max > 0 else 0 %}
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;min-width:22px;">
-        <div style="display:flex;align-items:flex-end;gap:1px;width:100%;">
-          <div style="flex:1;height:{{ h1 }}px;background:#2738EA;border-radius:2px 2px 0 0;" title="{{ m.label }}: {{ m.count }} активных"></div>
-          <div style="flex:1;height:{{ h2 }}px;background:#D7FF4E;border-radius:2px 2px 0 0;" title="{{ m.label }}: {{ m.paid }} оплатили"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;min-width:26px;">
+        <div style="display:flex;align-items:flex-end;gap:1px;width:100%;position:relative;">
+          <div style="flex:1;position:relative;">
+            {% if m.count > 0 %}
+            <div style="position:absolute;bottom:{{ h1 + 2 }}px;left:0;right:0;text-align:center;font-size:8px;color:#e2e8f0;font-weight:700;line-height:1;">{{ m.count }}</div>
+            {% endif %}
+            <div style="height:{{ h1 }}px;background:#2738EA;border-radius:2px 2px 0 0;"></div>
+          </div>
+          <div style="flex:1;position:relative;">
+            {% if m.paid > 0 %}
+            <div style="position:absolute;bottom:{{ h2 + 2 }}px;left:0;right:0;text-align:center;font-size:8px;color:#D7FF4E;font-weight:700;line-height:1;">{{ m.paid }}</div>
+            {% endif %}
+            <div style="height:{{ h2 }}px;background:#D7FF4E;border-radius:2px 2px 0 0;"></div>
+          </div>
         </div>
-        <div style="font-size:7px;color:#475569;margin-top:3px;text-align:center;white-space:nowrap;">{{ m.label }}</div>
+        <div style="font-size:8px;color:#94a3b8;margin-top:4px;text-align:center;white-space:nowrap;font-weight:500;">{{ m.label }}</div>
       </div>
       {% endfor %}
     </div>

@@ -953,10 +953,10 @@ def fetch_meta():
             try:
                 month_start = int(datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
                 all_leads   = amo_get_all('/leads', **{'filter[pipeline_id]': AMO_PIPELINE})
-                CLOSED      = {142, 143}
+                # Считаем ВСЕ лиды за месяц включая нерелевантные — для сравнения с Meta
                 amo_leads   = sum(
                     1 for l in all_leads
-                    if l['status_id'] not in CLOSED and l.get('created_at', 0) >= month_start
+                    if l.get('created_at', 0) >= month_start
                 )
                 amo_cpl = round(spend / amo_leads, 2) if amo_leads else None
             except Exception:

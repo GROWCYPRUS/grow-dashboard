@@ -382,6 +382,38 @@
   <div class="card"><div class="empty" style="padding:16px;text-align:center;">На этой неделе именинников нет 🎉</div></div>
   {% endif %}
 
+  <!-- Динамика платящих по месяцам (2025–2026) -->
+  {% if pay_dynamic %}
+  {% set pd = pay_dynamic | selectattr('year', 'ge', 2025) | list %}
+  {% if pd %}
+  {% set max_val = [pd | map(attribute='count') | max, pd | map(attribute='paid') | max] | max %}
+  <div class="section-label">📈 Платящие резиденты · динамика</div>
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 20px 10px;margin-bottom:28px;">
+    <div style="display:flex;gap:20px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;">
+        <div style="width:12px;height:12px;border-radius:2px;background:#4f46e5;"></div> Активных платящих
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;">
+        <div style="width:12px;height:12px;border-radius:2px;background:#16a34a;"></div> Оплатили в месяц
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:140px;">
+      {% for m in pd %}
+      {% set h1 = ((m.count / max_val) * 120) | int if max_val > 0 else 0 %}
+      {% set h2 = ((m.paid  / max_val) * 120) | int if max_val > 0 else 0 %}
+      <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
+        <div style="display:flex;align-items:flex-end;gap:1px;height:120px;width:100%;">
+          <div style="flex:1;height:{{ h1 }}px;background:{% if loop.last %}#818cf8{% else %}#4f46e5{% endif %};border-radius:3px 3px 0 0;" title="{{ m.count }}"></div>
+          <div style="flex:1;height:{{ h2 }}px;background:#16a34a;border-radius:3px 3px 0 0;" title="{{ m.paid }}"></div>
+        </div>
+        <div style="font-size:8px;color:#475569;margin-top:4px;text-align:center;overflow:hidden;width:100%;">{{ m.label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
   <!-- Скоро оплата / Просрочка -->
   {% if residents.upcoming_payments %}
   <div class="section-label">⚠️ Скоро оплата · ближайшие 30 дней</div>
@@ -414,29 +446,6 @@
         {% endfor %}
       </tbody>
     </table>
-  </div>
-  {% endif %}
-
-  <!-- Динамика платящих по месяцам -->
-  {% if pay_dynamic %}
-  <div class="section-label">📈 Платящие резиденты · динамика по месяцам</div>
-  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 20px 12px;margin-bottom:28px;">
-    {% set max_count = pay_dynamic | map(attribute='count') | max %}
-    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;overflow-x:auto;padding-bottom:4px;">
-      {% for m in pay_dynamic %}
-      {% set bar_h = ((m.count / max_count) * 100) | int if max_count > 0 else 0 %}
-      {% set is_curr = (m.year == now.year and m.month == now.month) if now is defined else false %}
-      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:36px;flex:1;">
-        <div style="font-size:10px;color:#6366f1;font-weight:700;">{{ m.count if m.count > 0 else '' }}</div>
-        <div style="width:100%;background:{% if loop.last %}#6366f1{% else %}#334155{% endif %};border-radius:4px 4px 0 0;height:{{ bar_h }}%;min-height:{% if m.count > 0 %}4{% else %}0{% endif %}px;transition:height 0.3s;"></div>
-      </div>
-      {% endfor %}
-    </div>
-    <div style="display:flex;gap:6px;margin-top:6px;">
-      {% for m in pay_dynamic %}
-      <div style="min-width:36px;flex:1;text-align:center;font-size:9px;color:#475569;white-space:nowrap;overflow:hidden;">{{ m.label }}</div>
-      {% endfor %}
-    </div>
   </div>
   {% endif %}
 

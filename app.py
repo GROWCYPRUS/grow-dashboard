@@ -1301,6 +1301,7 @@ def index():
             instagram = {'error': 'Не удалось загрузить Instagram'}
         ig_monthly = fetch_ig_monthly()
         ig_max = max((m['followers'] for m in ig_monthly), default=1) or 1
+        ig_min = min((m['followers'] for m in ig_monthly), default=0)
         pay_dynamic, pay_max = fetch_monthly_paying()
         # Текущий месяц — берём живые данные из листа статусов (те же, что вверху)
         if residents and not residents.get('error'):
@@ -1323,12 +1324,12 @@ def index():
             pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None
     except Exception as e:
-        team, week, crm, residents, attendance, budget, meta, instagram, ig_monthly, ig_max, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, None, [], 1, [], 1
+        team, week, crm, residents, attendance, budget, meta, instagram, ig_monthly, ig_max, ig_min, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, None, [], 1, 0, [], 1
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
         attendance=attendance, budget=budget, meta=meta,
-        instagram=instagram, ig_monthly=ig_monthly, ig_max=ig_max,
+        instagram=instagram, ig_monthly=ig_monthly, ig_max=ig_max, ig_min=ig_min,
         pay_dynamic=pay_dynamic, pay_max=pay_max,
         error=error,
         now_month=datetime.now().strftime('%m'),

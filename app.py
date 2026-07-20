@@ -967,14 +967,14 @@ def fetch_meta():
 
         cpl = round(spend / leads, 2) if leads else 0
 
-        # Статистика по кампаниям за весь 2026 год
+        # Кампании только за текущий месяц
         import json as _json
         today_str = datetime.now().strftime('%Y-%m-%d')
         campaigns_raw = []
         next_url = f'{base}/{META_ACCOUNT}/insights'
         next_params = {
             'fields':      'campaign_name,impressions,clicks,spend,actions',
-            'time_range':  _json.dumps({'since': '2026-01-01', 'until': today_str}),
+            'date_preset': 'this_month',
             'level':       'campaign',
             'limit':       50,
             'access_token': META_TOKEN,
@@ -1028,6 +1028,26 @@ def fetch_meta():
         try:
             today = datetime.now()
             MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+            # Кол-во кампаний по месяцам
+            from collections import defaultdict as _dd
+            rc2 = requests.get(
+                f'{base}/{META_ACCOUNT}/insights',
+                params={
+                    'fields':         'spend',
+                    'time_range':     _json.dumps({'since': '2026-01-01', 'until': today_str}),
+                    'time_increment': 'monthly',
+                    'level':          'campaign',
+                    'limit':          500,
+                    'access_token':   META_TOKEN,
+                },
+                timeout=12
+            )
+            camp_count_by_month = _dd(int)
+            for row in rc2.json().get('data', []):
+                ym = (row.get('date_start') or '')[:7]  # YYYY-MM
+                if ym:
+                    camp_count_by_month[ym] += 1
+
             rh = requests.get(
                 f'{base}/{META_ACCOUNT}/insights',
                 params={
@@ -1036,7 +1056,7 @@ def fetch_meta():
                     'time_increment':  'monthly',
                     'access_token':    META_TOKEN,
                 },
-                timeout=15
+                timeout=12
             )
             for item in rh.json().get('data', []):
                 date_str = item.get('date_start', '')
@@ -1047,13 +1067,15 @@ def fetch_meta():
                 m_spend = float(item.get('spend', 0))
                 m_actions = item.get('actions', [])
                 m_leads = next((int(a['value']) for a in m_actions if a['action_type'] == 'lead'), 0)
+                ym = dt.strftime('%Y-%m')
                 monthly_history.append({
-                    'label': f"{MONTH_LABELS[dt.month-1]} {str(dt.year)[2:]}",
-                    'month': dt.month,
-                    'year':  dt.year,
-                    'spend': round(m_spend, 0),
-                    'leads': m_leads,
-                    'cpl':   round(m_spend / m_leads, 0) if m_leads else 0,
+                    'label':      f"{MONTH_LABELS[dt.month-1]} {str(dt.year)[2:]}",
+                    'month':      dt.month,
+                    'year':       dt.year,
+                    'spend':      round(m_spend, 0),
+                    'leads':      m_leads,
+                    'cpl':        round(m_spend / m_leads, 0) if m_leads else 0,
+                    'camp_count': camp_count_by_month.get(ym, 0),
                 })
             monthly_history.sort(key=lambda x: (x['year'], x['month']))
         except Exception:

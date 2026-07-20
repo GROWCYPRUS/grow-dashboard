@@ -386,32 +386,36 @@ def fetch_gsheet_csv(sheet_id, sheet_name=None, gid=None):
     return list(reader)
 
 def fetch_monthly_paying():
-    """Читает исторические данные из вкладки Динамика"""
+    """Читает исторические данные из вкладки Динамика, все месяцы 2026"""
     try:
         rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, sheet_name='Динамика')
         MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
-        result = []
-        today = datetime.now()
+
+        # Читаем что есть в Динамика
+        snapshot = {}
         for row in (rows or []):
             try:
-                month = int(str(row.get('Месяц', '')).strip())
-                year  = int(str(row.get('Год', '')).strip())
+                m = int(str(row.get('Месяц', '')).strip())
+                y = int(str(row.get('Год', '')).strip())
                 count = int(float(str(row.get('Платящих', 0) or 0)))
                 paid  = int(float(str(row.get('Оплативших', 0) or 0)))
+                if y == 2026:
+                    snapshot[(y, m)] = (count, paid)
             except (ValueError, TypeError):
                 continue
-            if year < 2026:
-                continue
-            if year > today.year or (year == today.year and month > today.month):
-                continue
+
+        # Строим все 12 месяцев 2026 (заглушки для пустых)
+        result = []
+        for month in range(1, 13):
+            count, paid = snapshot.get((2026, month), (0, 0))
             result.append({
-                'label': f"{MONTH_LABELS[month-1]} {str(year)[2:]}",
+                'label': f"{MONTH_LABELS[month-1]} 26",
                 'count': count,
                 'paid':  paid,
-                'year':  year,
+                'year':  2026,
                 'month': month,
             })
-        result.sort(key=lambda m: (m['year'], m['month']))
+
         max_val = max((m['count'] for m in result), default=1)
         max_val = max(max_val, max((m['paid'] for m in result), default=1))
         return result, max_val

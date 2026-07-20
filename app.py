@@ -785,8 +785,8 @@ def fetch_attendance():
                 if not row or not row[0]:
                     continue
                 name_val = str(row[0]).strip()
-                reg_val  = str(row[reg_idx]).strip()  if row[reg_idx]  else ''
-                pres_val = str(row[pres_idx]).strip() if row[pres_idx] else ''
+                reg_val  = str(row[reg_idx]).strip()  if len(row) > reg_idx  and row[reg_idx]  else ''
+                pres_val = str(row[pres_idx]).strip() if len(row) > pres_idx and row[pres_idx] else ''
 
                 if reg_val in ('Да', 'Возможно'):
                     registered += 1
@@ -815,7 +815,9 @@ def fetch_attendance():
         # Средняя явка и лучший ивент (только у ивентов с посещаемостью)
         done_events = [e for e in events if e['attended'] > 0]
         avg_pct     = round(sum(e['pct_reg'] for e in done_events) / len(done_events)) if done_events else 0
-        top_event   = max(done_events, key=lambda x: x['attended'])['name'].split(' ', 1)[1] if done_events else '—'
+        _top_name   = max(done_events, key=lambda x: x['attended'])['name'] if done_events else '—'
+        _parts      = _top_name.split(' ', 1)
+        top_event   = _parts[1] if len(_parts) > 1 else _top_name
 
         # ── 3. Статус резидентов из Сводной ───────────────────
         summary_rows = fetch_gsheet_csv(sheet_info['id'], gid=sheet_info['gid'])

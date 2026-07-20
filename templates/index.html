@@ -870,7 +870,7 @@
         <div style="font-size:11px;font-weight:700;color:#e2e8f0;">{{ m.followers }}</div>
         <div style="width:100%;height:{{ bar_h }}px;background:linear-gradient(180deg,#2738EA,#1a27b8);border-radius:4px 4px 0 0;position:relative;min-height:4px;">
           {% if m.net_growth != 0 %}
-          <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:{% if m.net_growth > 0 %}#22c55e{% else %}#ef4444{% endif%;white-space:nowrap;">{% if m.net_growth > 0 %}+{% endif %}{{ m.net_growth }}</div>
+          <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:{% if m.net_growth > 0 %}#22c55e{% else %}#ef4444{% endif %};white-space:nowrap;">{% if m.net_growth > 0 %}+{% endif %}{{ m.net_growth }}</div>
           {% endif %}
         </div>
         <div style="font-size:11px;color:#64748b;font-weight:600;">{{ m.label }}</div>

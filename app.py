@@ -13,8 +13,9 @@ AMO_TOKEN    = os.environ.get('AMO_TOKEN', '')
 AMO_DOMAIN   = 'infogrowbccom.amocrm.ru'
 AMO_PIPELINE = 7514314  # Продажи
 
-META_TOKEN   = os.environ.get('META_TOKEN', '')
-META_ACCOUNT = 'act_840654057640596'
+META_TOKEN    = os.environ.get('META_TOKEN', '')
+IG_TOKEN      = os.environ.get('IG_TOKEN', META_TOKEN)  # отдельный токен для Instagram
+META_ACCOUNT  = 'act_840654057640596'
 IG_ACCOUNT_ID = '17841460973970595'  # @grow_bc Instagram Business Account
 
 RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
@@ -1108,7 +1109,7 @@ def fetch_instagram():
             return {'error': 'META_TOKEN не задан'}
 
         base  = 'https://graph.facebook.com/v19.0'
-        token = META_TOKEN
+        token = IG_TOKEN
         ig_id = IG_ACCOUNT_ID  # @grow_bc, ID из Meta Business Manager
 
         # 1. Базовая информация аккаунта
@@ -1247,8 +1248,8 @@ def index():
 def debug_instagram():
     try:
         base  = 'https://graph.facebook.com/v19.0'
-        token = META_TOKEN
-        lines = []
+        token = IG_TOKEN
+        lines = [f'IG_TOKEN задан: {bool(token)}', '']
 
         # Права токена
         perms_r = requests.get(f'{base}/me/permissions', params={'access_token': token}, timeout=10)

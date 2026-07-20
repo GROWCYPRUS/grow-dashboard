@@ -17,7 +17,7 @@ META_TOKEN   = os.environ.get('META_TOKEN', '')
 META_ACCOUNT = 'act_840654057640596'
 
 RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
-PAYMENTS_SHEET_ID  = '1h4zh7mFTKyfGUWOsyk1us9EfP379qd2P'
+PAYMENTS_SHEET_ID  = '1pq00oNCt3_xTi12r29d7B38-9vFlDPc029I1eZQapVc'
 PAYMENTS_GID       = '1169641494'
 
 MEMBERSHIP_WEIGHTS = {
@@ -386,51 +386,32 @@ def fetch_gsheet_csv(sheet_id, sheet_name=None, gid=None):
     return list(reader)
 
 def fetch_monthly_paying():
-    """Считает платящих резидентов на конец каждого месяца из вкладки Платежи"""
+    """Читает исторические данные из вкладки Динамика"""
     try:
-        import calendar as _cal
-        rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, sheet_name='Платежи')
-        if not rows:
-            return []
-
-        def parse_dt(s):
-            for fmt in ('%d.%m.%Y', '%Y-%m-%d'):
-                try:
-                    return datetime.strptime((s or '').strip(), fmt)
-                except Exception:
-                    continue
-            return None
-
-        payments = []
-        for row in rows:
-            start_raw = row.get('Начало периода ', '') or row.get('Начало периода', '')
-            end_raw   = row.get('Конец периода', '')
-            rid       = row.get('ID резидента', '').strip()
-            start = parse_dt(start_raw)
-            end   = parse_dt(end_raw)
-            if start and end and rid:
-                payments.append((rid, start, end))
-
-        today = datetime.now()
+        rows = fetch_gsheet_csv(PAYMENTS_SHEET_ID, sheet_name='Динамика')
+        MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
         result = []
-        for year in range(2026, today.year + 1):
-            for month in range(1, 13):
-                if year == today.year and month > today.month:
-                    break
-                last_day    = _cal.monthrange(year, month)[1]
-                month_end   = datetime(year, month, last_day)
-                month_start = datetime(year, month, 1)
-                # Активных: подписка перекрывает хотя бы один день месяца
-                count = len({rid for rid, s, e in payments if s <= month_end and e >= month_start})
-                # Оплатили в этом году накопительно (новые платежи 2026 до конца месяца)
-                ever_paid = len({rid for rid, s, e in payments if s.year == year and s <= month_end})
-                result.append({
-                    'label':  f"{['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][month-1]} {str(year)[2:]}",
-                    'count':  count,
-                    'paid':   ever_paid,
-                    'year':   year,
-                    'month':  month,
-                })
+        today = datetime.now()
+        for row in (rows or []):
+            try:
+                month = int(str(row.get('Месяц', '')).strip())
+                year  = int(str(row.get('Год', '')).strip())
+                count = int(float(str(row.get('Платящих', 0) or 0)))
+                paid  = int(float(str(row.get('Оплативших', 0) or 0)))
+            except (ValueError, TypeError):
+                continue
+            if year < 2026:
+                continue
+            if year > today.year or (year == today.year and month > today.month):
+                continue
+            result.append({
+                'label': f"{MONTH_LABELS[month-1]} {str(year)[2:]}",
+                'count': count,
+                'paid':  paid,
+                'year':  year,
+                'month': month,
+            })
+        result.sort(key=lambda m: (m['year'], m['month']))
         max_val = max((m['count'] for m in result), default=1)
         max_val = max(max_val, max((m['paid'] for m in result), default=1))
         return result, max_val
@@ -1057,13 +1038,22 @@ def index():
         budget      = fetch_budget()
         meta        = fetch_meta()
         pay_dynamic, pay_max = fetch_monthly_paying()
-        # Текущий месяц — берём цифры из листа статусов (те же, что вверху)
-        if pay_dynamic and residents and not residents.get('error'):
+        # Текущий месяц — берём живые данные из листа статусов (те же, что вверху)
+        if residents and not residents.get('error'):
             today_now = datetime.now()
-            last = pay_dynamic[-1]
-            if last['year'] == today_now.year and last['month'] == today_now.month:
-                last['count'] = int(residents.get('paying', last['count']))
-                last['paid']  = int(residents.get('paid_ok', last['paid']))
+            MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+            cur_label = f"{MONTH_LABELS[today_now.month-1]} {str(today_now.year)[2:]}"
+            cur_entry = {
+                'label': cur_label,
+                'count': int(residents.get('paying', 0)),
+                'paid':  int(residents.get('paid_ok', 0)),
+                'year':  today_now.year,
+                'month': today_now.month,
+            }
+            # Удаляем текущий месяц из истории если есть, добавляем живой
+            pay_dynamic = [m for m in pay_dynamic
+                           if not (m['year'] == today_now.year and m['month'] == today_now.month)]
+            pay_dynamic.append(cur_entry)
             pay_max = max((m['count'] for m in pay_dynamic), default=1)
             pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None

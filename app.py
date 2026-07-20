@@ -967,12 +967,14 @@ def fetch_meta():
 
         cpl = round(spend / leads, 2) if leads else 0
 
-        # Статистика по кампаниям — с пагинацией (макс 3 страницы)
+        # Статистика по кампаниям за весь 2026 год
+        import json as _json
+        today_str = datetime.now().strftime('%Y-%m-%d')
         campaigns_raw = []
         next_url = f'{base}/{META_ACCOUNT}/insights'
         next_params = {
             'fields':      'campaign_name,impressions,clicks,spend,actions',
-            'date_preset': 'this_month',
+            'time_range':  _json.dumps({'since': '2026-01-01', 'until': today_str}),
             'level':       'campaign',
             'limit':       50,
             'access_token': META_TOKEN,
@@ -1030,7 +1032,7 @@ def fetch_meta():
                 f'{base}/{META_ACCOUNT}/insights',
                 params={
                     'fields':          'spend,actions',
-                    'date_preset':     'last_year',
+                    'time_range':      _json.dumps({'since': '2026-01-01', 'until': today_str}),
                     'time_increment':  'monthly',
                     'access_token':    META_TOKEN,
                 },
@@ -1145,7 +1147,7 @@ def fetch_instagram():
             f'{base}/{ig_id}/media',
             params={
                 'fields':       'id,caption,media_type,timestamp,like_count,comments_count,reach,impressions,saved',
-                'limit':        15,
+                'limit':        50,
                 'access_token': used_token,
             },
             timeout=15
@@ -1154,6 +1156,9 @@ def fetch_instagram():
 
         posts = []
         for p in posts_raw:
+            post_date = (p.get('timestamp') or '')[:10]
+            if post_date and post_date < '2026-01-01':
+                continue
             likes    = p.get('like_count', 0) or 0
             comments = p.get('comments_count', 0) or 0
             saved    = p.get('saved', 0) or 0

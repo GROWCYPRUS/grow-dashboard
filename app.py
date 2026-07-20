@@ -1260,6 +1260,41 @@ def index():
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )
 
+@app.route('/debug-instagram')
+def debug_instagram():
+    try:
+        base  = 'https://graph.facebook.com/v19.0'
+        token = META_TOKEN
+        lines = []
+
+        # Права токена
+        perms_r = requests.get(f'{base}/me/permissions', params={'access_token': token}, timeout=10)
+        perms   = [p['permission'] for p in perms_r.json().get('data', []) if p.get('status') == 'granted']
+        lines.append(f'Права токена: {perms}')
+        lines.append('')
+
+        # Страницы
+        pages_r = requests.get(f'{base}/me/accounts', params={'access_token': token}, timeout=10)
+        pages   = pages_r.json().get('data', [])
+        lines.append(f'Найдено страниц: {len(pages)}')
+        for p in pages:
+            lines.append(f'  Страница: {p.get("name")} (id={p.get("id")})')
+            # Проверяем IG аккаунт
+            ig_r = requests.get(
+                f'{base}/{p["id"]}',
+                params={'fields': 'instagram_business_account,name', 'access_token': p.get("access_token", token)},
+                timeout=10
+            )
+            ig_data = ig_r.json()
+            ig = ig_data.get('instagram_business_account')
+            lines.append(f'    Instagram Business: {ig}')
+            lines.append(f'    Raw: {ig_data}')
+
+        return '<pre>' + '\n'.join(lines) + '</pre>'
+    except Exception as e:
+        import traceback
+        return f'<pre>{e}\n{traceback.format_exc()}</pre>'
+
 @app.route('/debug-bdays')
 def debug_bdays():
     try:

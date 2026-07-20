@@ -1160,6 +1160,8 @@ def fetch_instagram():
         )
         posts_raw = media_r.json().get('data', [])
 
+        followers = profile_data.get('followers_count', 0) or 1
+
         posts = []
         for p in posts_raw:
             post_date = (p.get('timestamp') or '')[:10]
@@ -1170,7 +1172,11 @@ def fetch_instagram():
             saved    = p.get('saved', 0) or 0
             reach    = p.get('reach', 0) or 0
             caption  = (p.get('caption') or '')[:80]
-            eng_rate = round((likes + comments + saved) / reach * 100, 1) if reach else 0
+            # Если reach недоступен — считаем ER по подписчикам
+            if reach:
+                eng_rate = round((likes + comments + saved) / reach * 100, 1)
+            else:
+                eng_rate = round((likes + comments) / followers * 100, 1)
             posts.append({
                 'caption':   caption,
                 'type':      p.get('media_type', ''),

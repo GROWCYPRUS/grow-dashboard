@@ -1103,14 +1103,22 @@ def fetch_meta():
     except Exception as e:
         return {'error': str(e)}
 
-# ── Instagram monthly history (from spreadsheet) ──────────
+# ── Instagram monthly history (from "Динамика" tab) ───────
 def fetch_ig_monthly():
+    """
+    Читает горизонтальную таблицу из вкладки "Динамика":
+      Строка 1: "Показатель Инстаграм" | Январь | Февраль | ...
+      Строка 2: "Количество подписчиков" | 5483 | 5549 | ...
+      Строка 3: "Кол-во подписок" | 111 | 128 | ...
+      Строка 4: "Кол-во отписок"  | 113 | 74  | ...
+      Строка 5: "Чистый прирост"  | -2  | 54  | ...
+    """
     import csv as _csv, io as _io
-    MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
     MONTH_MAP = {
         'январь':1,'февраль':2,'март':3,'апрель':4,'май':5,'июнь':6,
         'июль':7,'август':8,'сентябрь':9,'октябрь':10,'ноябрь':11,'декабрь':12
     }
+    MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
     METRICS = {
         'количество подписчиков': 'followers',
         'кол-во подписок':        'new_follows',
@@ -1120,77 +1128,37 @@ def fetch_ig_monthly():
     try:
         r = requests.get(
             f'https://docs.google.com/spreadsheets/d/{IG_STATS_SHEET}/gviz/tq',
-            params={'tqx': 'out:csv', 'gid': '0'},
+            params={'tqx': 'out:csv', 'sheet': 'Динамика'},
             timeout=15
         )
         r.raise_for_status()
         rows = list(_csv.reader(_io.StringIO(r.text)))
-
         if len(rows) < 2:
             return []
 
-        # Находим строку с "2026" и строку с именами месяцев
-        year_row_idx  = None
-        month_row_idx = None
-        year_2026_col = None
+        # Строка 1 — заголовок: col 0 = метка, col 1+ = месяцы
+        header = rows[0]
+        # Карта: индекс_колонки → номер_месяца
+        col_to_month = {}
+        for j, cell in enumerate(header[1:], start=1):
+            m = str(cell).strip().lower()
+            if m in MONTH_MAP:
+                col_to_month[j] = MONTH_MAP[m]
 
-        for i, row in enumerate(rows[:10]):
-            for j, cell in enumerate(row):
-                if '2026' in str(cell):
-                    year_row_idx  = i
-                    year_2026_col = j
-                    break
-            if year_row_idx is not None:
-                break
-
-        if year_2026_col is None:
+        if not col_to_month:
             return []
 
-        # Ищем строку с названиями месяцев (Январь/Февраль/...) после строки с годом
-        for i in range(year_row_idx, min(year_row_idx + 3, len(rows))):
-            row = rows[i]
-            found = sum(1 for c in row if str(c).strip().lower() in MONTH_MAP)
-            if found >= 3:
-                month_row_idx = i
-                break
-
-        # Составляем карту: номер_месяца → индекс_колонки (только 2026)
-        month_cols = {}
-        if month_row_idx is not None:
-            row = rows[month_row_idx]
-            in_2026 = False
-            for j, cell in enumerate(row):
-                if j == year_2026_col:
-                    in_2026 = True
-                if in_2026:
-                    m = str(cell).strip().lower()
-                    if m in MONTH_MAP:
-                        month_cols[MONTH_MAP[m]] = j
-        else:
-            # Запасной вариант: 2026 данные идут сразу после столбца с "2026"
-            for offset in range(1, 13):
-                month_cols[offset] = year_2026_col + offset
-
-        # Читаем строки данных — только Instagram раздел (до Telegram)
-        data_start = (month_row_idx or year_row_idx) + 1
+        # Строки 2+ — данные
         by_month = {}
-        ig_section_done = False
-
-        for row in rows[data_start:]:
+        for row in rows[1:]:
             if not row or not row[0].strip():
                 continue
-            first = row[0].strip().lower()
-            # Стоп — начался раздел Telegram
-            if 'телеграм' in first or 'telegram' in first or 'показатель т' in first:
-                break
-            metric = first
+            metric = row[0].strip().lower()
             key = METRICS.get(metric)
             if not key:
                 continue
-            for month_num, col in month_cols.items():
-                if col >= len(row):
-                    continue
-                raw = str(row[col]).replace('\xa0','').replace(' ','').replace(',','.').strip()
+            for col, month_num in col_to_month.items():
+                raw = str(row[col]).replace('\xa0','').replace(' ','').replace(',','.').strip() if col < len(row) else ''
                 try:
                     val = int(float(raw)) if raw else 0
                 except (ValueError, TypeError):
@@ -1205,12 +1173,12 @@ def fetch_ig_monthly():
             if d.get('followers', 0) == 0 and d.get('new_follows', 0) == 0:
                 continue
             result.append({
-                'month_num':  m,
-                'label':      MONTH_LABELS[m - 1],
-                'followers':  d.get('followers', 0),
+                'month_num':   m,
+                'label':       MONTH_LABELS[m - 1],
+                'followers':   d.get('followers', 0),
                 'new_follows': d.get('new_follows', 0),
-                'unfollows':  d.get('unfollows', 0),
-                'net_growth': d.get('net_growth', 0),
+                'unfollows':   d.get('unfollows', 0),
+                'net_growth':  d.get('net_growth', 0),
             })
         return result
     except Exception:

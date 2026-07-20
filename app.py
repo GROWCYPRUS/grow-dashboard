@@ -15,6 +15,7 @@ AMO_PIPELINE = 7514314  # Продажи
 
 META_TOKEN   = os.environ.get('META_TOKEN', '')
 META_ACCOUNT = 'act_840654057640596'
+IG_ACCOUNT_ID = '17841460973970595'  # @grow_bc Instagram Business Account
 
 RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
 PAYMENTS_SHEET_ID  = '1pq00oNCt3_xTi12r29d7B38-9vFlDPc029I1eZQapVc'
@@ -1106,45 +1107,27 @@ def fetch_instagram():
         if not META_TOKEN:
             return {'error': 'META_TOKEN не задан'}
 
-        base = 'https://graph.facebook.com/v19.0'
+        base  = 'https://graph.facebook.com/v19.0'
         token = META_TOKEN
+        ig_id = IG_ACCOUNT_ID  # @grow_bc, ID из Meta Business Manager
 
-        # 1. Находим Facebook страницы
-        pages_r = requests.get(f'{base}/me/accounts',
-                               params={'access_token': token}, timeout=15)
-        pages_r.raise_for_status()
-        pages = pages_r.json().get('data', [])
-        if not pages:
-            return {'error': 'Facebook страницы не найдены'}
-
-        # 2. Ищем Instagram Business аккаунт привязанный к странице
-        ig_id = None
-        for page in pages:
-            page_token = page.get('access_token', token)
-            ig_r = requests.get(
-                f'{base}/{page["id"]}',
-                params={'fields': 'instagram_business_account', 'access_token': page_token},
-                timeout=15
-            )
-            ig_data = ig_r.json().get('instagram_business_account')
-            if ig_data:
-                ig_id = ig_data['id']
-                used_token = page_token
-                break
-
-        if not ig_id:
-            return {'error': 'Instagram Business аккаунт не найден. Убедись что Instagram подключён к Facebook странице.'}
-
-        # 3. Базовая информация аккаунта
+        # 1. Базовая информация аккаунта
         profile_r = requests.get(
             f'{base}/{ig_id}',
-            params={'fields': 'username,followers_count,media_count,profile_picture_url',
-                    'access_token': used_token},
+            params={'fields': 'username,followers_count,media_count',
+                    'access_token': token},
             timeout=15
         )
-        profile = profile_r.json()
+        profile_data = profile_r.json()
+        if 'error' in profile_data:
+            err = profile_data['error']
+            if err.get('code') in (10, 200, 190):
+                return {
+                    'error': f"Нет прав для Instagram API. Добавь в токен: instagram_basic, instagram_manage_insights. ({err.get('message', '')})"
+                }
+            return {'error': err.get('message', str(profile_data))}
 
-        # 4. Инсайты аккаунта за текущий месяц
+        # 2. Инсайты за текущий месяц
         today = datetime.now()
         since = int(today.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
         until = int(today.timestamp())
@@ -1156,7 +1139,7 @@ def fetch_instagram():
                 'period':       'month',
                 'since':        since,
                 'until':        until,
-                'access_token': used_token,
+                'access_token': token,
             },
             timeout=15
         )
@@ -1164,13 +1147,13 @@ def fetch_instagram():
         insights = {item['name']: item['values'][-1]['value'] if item.get('values') else 0
                     for item in insights_data}
 
-        # 5. Последние 15 постов с engagement
+        # 3. Посты 2026 года с engagement
         media_r = requests.get(
             f'{base}/{ig_id}/media',
             params={
                 'fields':       'id,caption,media_type,timestamp,like_count,comments_count,reach,impressions,saved',
                 'limit':        50,
-                'access_token': used_token,
+                'access_token': token,
             },
             timeout=15
         )
@@ -1190,7 +1173,7 @@ def fetch_instagram():
             posts.append({
                 'caption':   caption,
                 'type':      p.get('media_type', ''),
-                'date':      p.get('timestamp', '')[:10],
+                'date':      post_date,
                 'likes':     likes,
                 'comments':  comments,
                 'saved':     saved,
@@ -1201,9 +1184,9 @@ def fetch_instagram():
         posts.sort(key=lambda x: -x['reach'])
 
         return {
-            'username':       profile.get('username', ''),
-            'followers':      profile.get('followers_count', 0),
-            'media_count':    profile.get('media_count', 0),
+            'username':       profile_data.get('username', 'grow_bc'),
+            'followers':      profile_data.get('followers_count', 0),
+            'media_count':    profile_data.get('media_count', 0),
             'reach':          insights.get('reach', 0),
             'impressions':    insights.get('impressions', 0),
             'profile_views':  insights.get('profile_views', 0),
@@ -1271,24 +1254,30 @@ def debug_instagram():
         perms_r = requests.get(f'{base}/me/permissions', params={'access_token': token}, timeout=10)
         perms   = [p['permission'] for p in perms_r.json().get('data', []) if p.get('status') == 'granted']
         lines.append(f'Права токена: {perms}')
+        ig_ok = 'instagram_basic' in perms and 'instagram_manage_insights' in perms
+        lines.append(f'Instagram права ОК: {ig_ok}')
+        if not ig_ok:
+            missing = [p for p in ['instagram_basic', 'instagram_manage_insights'] if p not in perms]
+            lines.append(f'  ⚠ Не хватает прав: {missing}')
         lines.append('')
 
-        # Страницы
+        # Прямой запрос к IG аккаунту
+        lines.append(f'IG Account ID (захардкожен): {IG_ACCOUNT_ID}')
+        ig_r = requests.get(
+            f'{base}/{IG_ACCOUNT_ID}',
+            params={'fields': 'username,followers_count,media_count', 'access_token': token},
+            timeout=10
+        )
+        ig_data = ig_r.json()
+        lines.append(f'Ответ от IG API: {ig_data}')
+        lines.append('')
+
+        # Страницы (для справки)
         pages_r = requests.get(f'{base}/me/accounts', params={'access_token': token}, timeout=10)
         pages   = pages_r.json().get('data', [])
-        lines.append(f'Найдено страниц: {len(pages)}')
+        lines.append(f'Найдено Facebook страниц: {len(pages)}')
         for p in pages:
-            lines.append(f'  Страница: {p.get("name")} (id={p.get("id")})')
-            # Проверяем IG аккаунт
-            ig_r = requests.get(
-                f'{base}/{p["id"]}',
-                params={'fields': 'instagram_business_account,name', 'access_token': p.get("access_token", token)},
-                timeout=10
-            )
-            ig_data = ig_r.json()
-            ig = ig_data.get('instagram_business_account')
-            lines.append(f'    Instagram Business: {ig}')
-            lines.append(f'    Raw: {ig_data}')
+            lines.append(f'  {p.get("name")} (id={p.get("id")})')
 
         return '<pre>' + '\n'.join(lines) + '</pre>'
     except Exception as e:

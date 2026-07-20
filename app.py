@@ -967,19 +967,23 @@ def fetch_meta():
 
         cpl = round(spend / leads, 2) if leads else 0
 
-        # Статистика по кампаниям
-        rc = requests.get(
-            f'{base}/{META_ACCOUNT}/insights',
-            params={
-                'fields':      'campaign_name,impressions,clicks,spend,actions',
-                'date_preset': 'this_month',
-                'level':       'campaign',
-                'access_token': META_TOKEN,
-            },
-            timeout=15
-        )
-        rc.raise_for_status()
-        campaigns_raw = rc.json().get('data', [])
+        # Статистика по кампаниям — все страницы
+        campaigns_raw = []
+        next_url = f'{base}/{META_ACCOUNT}/insights'
+        next_params = {
+            'fields':      'campaign_name,impressions,clicks,spend,actions',
+            'date_preset': 'this_month',
+            'level':       'campaign',
+            'limit':       100,
+            'access_token': META_TOKEN,
+        }
+        while next_url:
+            rc = requests.get(next_url, params=next_params, timeout=15)
+            rc.raise_for_status()
+            rj = rc.json()
+            campaigns_raw.extend(rj.get('data', []))
+            next_url   = rj.get('paging', {}).get('next')
+            next_params = {}  # next URL уже содержит все параметры
 
         campaigns = []
         for c in campaigns_raw:

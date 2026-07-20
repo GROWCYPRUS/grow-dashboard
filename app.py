@@ -1077,7 +1077,7 @@ def fetch_meta():
                     'cpl':        round(m_spend / m_leads, 0) if m_leads else 0,
                     'camp_count': camp_count_by_month.get(ym, 0),
                 })
-            monthly_history.sort(key=lambda x: (x['year'], x['month']))
+            monthly_history.sort(key=lambda x: (x['year'], x['month']), reverse=True)
         except Exception:
             pass
 

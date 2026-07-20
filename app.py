@@ -1033,6 +1033,116 @@ def fetch_meta():
     except Exception as e:
         return {'error': str(e)}
 
+# ── Instagram ─────────────────────────────────────────────
+def fetch_instagram():
+    try:
+        if not META_TOKEN:
+            return {'error': 'META_TOKEN не задан'}
+
+        base = 'https://graph.facebook.com/v19.0'
+        token = META_TOKEN
+
+        # 1. Находим Facebook страницы
+        pages_r = requests.get(f'{base}/me/accounts',
+                               params={'access_token': token}, timeout=15)
+        pages_r.raise_for_status()
+        pages = pages_r.json().get('data', [])
+        if not pages:
+            return {'error': 'Facebook страницы не найдены'}
+
+        # 2. Ищем Instagram Business аккаунт привязанный к странице
+        ig_id = None
+        for page in pages:
+            page_token = page.get('access_token', token)
+            ig_r = requests.get(
+                f'{base}/{page["id"]}',
+                params={'fields': 'instagram_business_account', 'access_token': page_token},
+                timeout=15
+            )
+            ig_data = ig_r.json().get('instagram_business_account')
+            if ig_data:
+                ig_id = ig_data['id']
+                used_token = page_token
+                break
+
+        if not ig_id:
+            return {'error': 'Instagram Business аккаунт не найден. Убедись что Instagram подключён к Facebook странице.'}
+
+        # 3. Базовая информация аккаунта
+        profile_r = requests.get(
+            f'{base}/{ig_id}',
+            params={'fields': 'username,followers_count,media_count,profile_picture_url',
+                    'access_token': used_token},
+            timeout=15
+        )
+        profile = profile_r.json()
+
+        # 4. Инсайты аккаунта за текущий месяц
+        today = datetime.now()
+        since = int(today.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+        until = int(today.timestamp())
+
+        insights_r = requests.get(
+            f'{base}/{ig_id}/insights',
+            params={
+                'metric':       'reach,impressions,profile_views,website_clicks',
+                'period':       'month',
+                'since':        since,
+                'until':        until,
+                'access_token': used_token,
+            },
+            timeout=15
+        )
+        insights_data = insights_r.json().get('data', [])
+        insights = {item['name']: item['values'][-1]['value'] if item.get('values') else 0
+                    for item in insights_data}
+
+        # 5. Последние 15 постов с engagement
+        media_r = requests.get(
+            f'{base}/{ig_id}/media',
+            params={
+                'fields':       'id,caption,media_type,timestamp,like_count,comments_count,reach,impressions,saved',
+                'limit':        15,
+                'access_token': used_token,
+            },
+            timeout=15
+        )
+        posts_raw = media_r.json().get('data', [])
+
+        posts = []
+        for p in posts_raw:
+            likes    = p.get('like_count', 0) or 0
+            comments = p.get('comments_count', 0) or 0
+            saved    = p.get('saved', 0) or 0
+            reach    = p.get('reach', 0) or 0
+            caption  = (p.get('caption') or '')[:80]
+            eng_rate = round((likes + comments + saved) / reach * 100, 1) if reach else 0
+            posts.append({
+                'caption':   caption,
+                'type':      p.get('media_type', ''),
+                'date':      p.get('timestamp', '')[:10],
+                'likes':     likes,
+                'comments':  comments,
+                'saved':     saved,
+                'reach':     reach,
+                'eng_rate':  eng_rate,
+            })
+
+        posts.sort(key=lambda x: -x['reach'])
+
+        return {
+            'username':       profile.get('username', ''),
+            'followers':      profile.get('followers_count', 0),
+            'media_count':    profile.get('media_count', 0),
+            'reach':          insights.get('reach', 0),
+            'impressions':    insights.get('impressions', 0),
+            'profile_views':  insights.get('profile_views', 0),
+            'website_clicks': insights.get('website_clicks', 0),
+            'posts':          posts,
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
 # ── Routes ────────────────────────────────────────────────
 @app.route('/')
 def index():
@@ -1043,6 +1153,7 @@ def index():
         attendance  = fetch_attendance()
         budget      = fetch_budget()
         meta        = fetch_meta()
+        instagram   = fetch_instagram()
         pay_dynamic, pay_max = fetch_monthly_paying()
         # Текущий месяц — берём живые данные из листа статусов (те же, что вверху)
         if residents and not residents.get('error'):
@@ -1065,11 +1176,12 @@ def index():
             pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None
     except Exception as e:
-        team, week, crm, residents, attendance, budget, meta, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, [], 1
+        team, week, crm, residents, attendance, budget, meta, instagram, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, None, [], 1
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
         attendance=attendance, budget=budget, meta=meta,
+        instagram=instagram,
         pay_dynamic=pay_dynamic, pay_max=pay_max,
         error=error,
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')

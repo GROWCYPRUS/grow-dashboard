@@ -861,7 +861,6 @@
   </div>
 
   <!-- Диаграмма подписчиков -->
-  {% set ig_max = ig_monthly | map(attribute='followers') | max %}
   <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px 24px;margin-bottom:28px;">
     <div style="display:flex;align-items:flex-end;gap:10px;height:140px;">
       {% for m in ig_monthly %}

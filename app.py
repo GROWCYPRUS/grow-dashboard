@@ -1058,6 +1058,7 @@ def index():
             pay_dynamic = [m for m in pay_dynamic
                            if not (m['year'] == today_now.year and m['month'] == today_now.month)]
             pay_dynamic.append(cur_entry)
+            pay_dynamic.sort(key=lambda m: (m['year'], m['month']))
             pay_max = max((m['count'] for m in pay_dynamic), default=1)
             pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None

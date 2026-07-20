@@ -13,10 +13,11 @@ AMO_TOKEN    = os.environ.get('AMO_TOKEN', '')
 AMO_DOMAIN   = 'infogrowbccom.amocrm.ru'
 AMO_PIPELINE = 7514314  # Продажи
 
-META_TOKEN    = os.environ.get('META_TOKEN', '')
-IG_TOKEN      = os.environ.get('IG_TOKEN', META_TOKEN)  # отдельный токен для Instagram
-META_ACCOUNT  = 'act_840654057640596'
-IG_ACCOUNT_ID = '17841460973970595'  # @grow_bc Instagram Business Account
+META_TOKEN     = os.environ.get('META_TOKEN', '')
+IG_TOKEN       = os.environ.get('IG_TOKEN', META_TOKEN)
+META_ACCOUNT   = 'act_840654057640596'
+IG_ACCOUNT_ID  = '17841460973970595'   # @grow_bc Instagram Business Account
+IG_STATS_SHEET = '1L6aYPI3fEyYmxnVpFA0FLzIJFQVpxJaiLAxO9OKayhE'  # Instagram статистика
 
 RESIDENTS_SHEET_ID = '1FCRtmU9D9YeT9xHRAwEqiW5jgA-EcjyE7YBW3-E71qs'
 PAYMENTS_SHEET_ID  = '1pq00oNCt3_xTi12r29d7B38-9vFlDPc029I1eZQapVc'
@@ -1102,6 +1103,114 @@ def fetch_meta():
     except Exception as e:
         return {'error': str(e)}
 
+# ── Instagram monthly history (from spreadsheet) ──────────
+def fetch_ig_monthly():
+    import csv as _csv, io as _io
+    MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+    MONTH_MAP = {
+        'январь':1,'февраль':2,'март':3,'апрель':4,'май':5,'июнь':6,
+        'июль':7,'август':8,'сентябрь':9,'октябрь':10,'ноябрь':11,'декабрь':12
+    }
+    METRICS = {
+        'количество подписчиков': 'followers',
+        'кол-во подписок':        'new_follows',
+        'кол-во отписок':         'unfollows',
+        'чистый прирост':         'net_growth',
+    }
+    try:
+        r = requests.get(
+            f'https://docs.google.com/spreadsheets/d/{IG_STATS_SHEET}/gviz/tq',
+            params={'tqx': 'out:csv', 'gid': '0'},
+            timeout=15
+        )
+        r.raise_for_status()
+        rows = list(_csv.reader(_io.StringIO(r.text)))
+
+        if len(rows) < 2:
+            return []
+
+        # Находим строку с "2026" и строку с именами месяцев
+        year_row_idx  = None
+        month_row_idx = None
+        year_2026_col = None
+
+        for i, row in enumerate(rows[:10]):
+            for j, cell in enumerate(row):
+                if '2026' in str(cell):
+                    year_row_idx  = i
+                    year_2026_col = j
+                    break
+            if year_row_idx is not None:
+                break
+
+        if year_2026_col is None:
+            return []
+
+        # Ищем строку с названиями месяцев (Январь/Февраль/...) после строки с годом
+        for i in range(year_row_idx, min(year_row_idx + 3, len(rows))):
+            row = rows[i]
+            found = sum(1 for c in row if str(c).strip().lower() in MONTH_MAP)
+            if found >= 3:
+                month_row_idx = i
+                break
+
+        # Составляем карту: номер_месяца → индекс_колонки (только 2026)
+        month_cols = {}
+        if month_row_idx is not None:
+            row = rows[month_row_idx]
+            in_2026 = False
+            for j, cell in enumerate(row):
+                if j == year_2026_col:
+                    in_2026 = True
+                if in_2026:
+                    m = str(cell).strip().lower()
+                    if m in MONTH_MAP:
+                        month_cols[MONTH_MAP[m]] = j
+        else:
+            # Запасной вариант: 2026 данные идут сразу после столбца с "2026"
+            for offset in range(1, 13):
+                month_cols[offset] = year_2026_col + offset
+
+        # Читаем строки данных
+        data_start = (month_row_idx or year_row_idx) + 1
+        by_month = {}
+
+        for row in rows[data_start:]:
+            if not row or not row[0].strip():
+                continue
+            metric = row[0].strip().lower()
+            key = METRICS.get(metric)
+            if not key:
+                continue
+            for month_num, col in month_cols.items():
+                if col >= len(row):
+                    continue
+                raw = str(row[col]).replace('\xa0','').replace(' ','').replace(',','.').strip()
+                try:
+                    val = int(float(raw)) if raw else 0
+                except (ValueError, TypeError):
+                    val = 0
+                if month_num not in by_month:
+                    by_month[month_num] = {}
+                by_month[month_num][key] = val
+
+        result = []
+        for m in sorted(by_month):
+            d = by_month[m]
+            if d.get('followers', 0) == 0 and d.get('new_follows', 0) == 0:
+                continue
+            result.append({
+                'month_num':  m,
+                'label':      MONTH_LABELS[m - 1],
+                'followers':  d.get('followers', 0),
+                'new_follows': d.get('new_follows', 0),
+                'unfollows':  d.get('unfollows', 0),
+                'net_growth': d.get('net_growth', 0),
+            })
+        return result
+    except Exception:
+        return []
+
 # ── Instagram ─────────────────────────────────────────────
 def fetch_instagram():
     try:
@@ -1217,6 +1326,7 @@ def index():
             instagram = fetch_instagram()
         except Exception:
             instagram = {'error': 'Не удалось загрузить Instagram'}
+        ig_monthly = fetch_ig_monthly()
         pay_dynamic, pay_max = fetch_monthly_paying()
         # Текущий месяц — берём живые данные из листа статусов (те же, что вверху)
         if residents and not residents.get('error'):
@@ -1239,14 +1349,15 @@ def index():
             pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None
     except Exception as e:
-        team, week, crm, residents, attendance, budget, meta, instagram, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, None, [], 1
+        team, week, crm, residents, attendance, budget, meta, instagram, ig_monthly, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, None, [], [], 1
         error = str(e)
     return render_template('index.html',
         team=team, week=week, crm=crm, residents=residents,
         attendance=attendance, budget=budget, meta=meta,
-        instagram=instagram,
+        instagram=instagram, ig_monthly=ig_monthly,
         pay_dynamic=pay_dynamic, pay_max=pay_max,
         error=error,
+        now_month=datetime.now().strftime('%m'),
         updated=datetime.now().strftime('%d.%m.%Y в %H:%M')
     )
 

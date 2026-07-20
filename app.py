@@ -967,23 +967,25 @@ def fetch_meta():
 
         cpl = round(spend / leads, 2) if leads else 0
 
-        # Статистика по кампаниям — все страницы
+        # Статистика по кампаниям — с пагинацией (макс 3 страницы)
         campaigns_raw = []
         next_url = f'{base}/{META_ACCOUNT}/insights'
         next_params = {
             'fields':      'campaign_name,impressions,clicks,spend,actions',
             'date_preset': 'this_month',
             'level':       'campaign',
-            'limit':       100,
+            'limit':       50,
             'access_token': META_TOKEN,
         }
-        while next_url:
-            rc = requests.get(next_url, params=next_params, timeout=15)
+        pages = 0
+        while next_url and pages < 3:
+            rc = requests.get(next_url, params=next_params, timeout=10)
             rc.raise_for_status()
             rj = rc.json()
             campaigns_raw.extend(rj.get('data', []))
-            next_url   = rj.get('paging', {}).get('next')
-            next_params = {}  # next URL уже содержит все параметры
+            next_url    = rj.get('paging', {}).get('next')
+            next_params = {}
+            pages += 1
 
         campaigns = []
         for c in campaigns_raw:
@@ -1194,7 +1196,10 @@ def index():
         attendance  = fetch_attendance()
         budget      = fetch_budget()
         meta        = fetch_meta()
-        instagram   = fetch_instagram()
+        try:
+            instagram = fetch_instagram()
+        except Exception:
+            instagram = {'error': 'Не удалось загрузить Instagram'}
         pay_dynamic, pay_max = fetch_monthly_paying()
         # Текущий месяц — берём живые данные из листа статусов (те же, что вверху)
         if residents and not residents.get('error'):

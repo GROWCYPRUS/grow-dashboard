@@ -1171,14 +1171,19 @@ def fetch_ig_monthly():
             for offset in range(1, 13):
                 month_cols[offset] = year_2026_col + offset
 
-        # Читаем строки данных
+        # Читаем строки данных — только Instagram раздел (до Telegram)
         data_start = (month_row_idx or year_row_idx) + 1
         by_month = {}
+        ig_section_done = False
 
         for row in rows[data_start:]:
             if not row or not row[0].strip():
                 continue
-            metric = row[0].strip().lower()
+            first = row[0].strip().lower()
+            # Стоп — начался раздел Telegram
+            if 'телеграм' in first or 'telegram' in first or 'показатель т' in first:
+                break
+            metric = first
             key = METRICS.get(metric)
             if not key:
                 continue

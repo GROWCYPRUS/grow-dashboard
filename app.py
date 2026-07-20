@@ -1015,20 +1015,57 @@ def fetch_meta():
             except Exception:
                 pass
 
+        # ── Помесячная динамика за последние 12 месяцев ──
+        monthly_history = []
+        try:
+            today = datetime.now()
+            MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+            rh = requests.get(
+                f'{base}/{META_ACCOUNT}/insights',
+                params={
+                    'fields':          'spend,actions',
+                    'date_preset':     'last_year',
+                    'time_increment':  'monthly',
+                    'access_token':    META_TOKEN,
+                },
+                timeout=15
+            )
+            for item in rh.json().get('data', []):
+                date_str = item.get('date_start', '')
+                try:
+                    dt = datetime.strptime(date_str, '%Y-%m-%d')
+                except ValueError:
+                    continue
+                m_spend = float(item.get('spend', 0))
+                m_actions = item.get('actions', [])
+                m_leads = next((int(a['value']) for a in m_actions if a['action_type'] == 'lead'), 0)
+                monthly_history.append({
+                    'label': f"{MONTH_LABELS[dt.month-1]} {str(dt.year)[2:]}",
+                    'month': dt.month,
+                    'year':  dt.year,
+                    'spend': round(m_spend, 0),
+                    'leads': m_leads,
+                    'cpl':   round(m_spend / m_leads, 0) if m_leads else 0,
+                })
+            monthly_history.sort(key=lambda x: (x['year'], x['month']))
+        except Exception:
+            pass
+
         today = datetime.now()
         return {
-            'month':       MONTH_NAMES_RU[today.month - 1],
-            'spend':       round(spend, 2),
-            'impressions': impressions,
-            'clicks':      clicks,
-            'leads':       leads,
-            'cpl':         cpl,
-            'best_cpl':    best_cpl,
-            'cpm':         round(cpm, 2),
-            'cpc':         round(cpc, 2),
-            'campaigns':   sorted(campaigns, key=lambda x: -x['leads']),
-            'amo_leads':   amo_leads,
-            'amo_cpl':     amo_cpl,
+            'month':           MONTH_NAMES_RU[today.month - 1],
+            'spend':           round(spend, 2),
+            'impressions':     impressions,
+            'clicks':          clicks,
+            'leads':           leads,
+            'cpl':             cpl,
+            'best_cpl':        best_cpl,
+            'cpm':             round(cpm, 2),
+            'cpc':             round(cpc, 2),
+            'campaigns':       sorted(campaigns, key=lambda x: -x['leads']),
+            'amo_leads':       amo_leads,
+            'amo_cpl':         amo_cpl,
+            'monthly_history': monthly_history,
         }
     except Exception as e:
         return {'error': str(e)}

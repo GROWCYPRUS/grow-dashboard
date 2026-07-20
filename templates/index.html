@@ -788,6 +788,33 @@
   </div>
   {% endif %}
 
+  <!-- Динамика по месяцам -->
+  {% if meta.monthly_history %}
+  <div class="section-label" style="margin-top:28px;">📅 Динамика · расходы и лиды по месяцам</div>
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;margin-bottom:28px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:1px solid #334155;">
+          <th style="padding:10px 14px;text-align:left;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Месяц</th>
+          <th style="padding:10px 14px;text-align:right;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Бюджет €</th>
+          <th style="padding:10px 14px;text-align:right;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Лиды</th>
+          <th style="padding:10px 14px;text-align:right;color:#475569;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">CPL €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in meta.monthly_history %}
+        <tr style="border-bottom:1px solid #0f172a;{% if loop.index % 2 == 0 %}background:#0f172a;{% endif %}">
+          <td style="padding:10px 14px;color:#cbd5e1;font-weight:600;">{{ m.label }}</td>
+          <td style="padding:10px 14px;text-align:right;color:#e2e8f0;">€{{ m.spend | int }}</td>
+          <td style="padding:10px 14px;text-align:right;color:#D7FF4E;font-weight:700;">{{ m.leads }}</td>
+          <td style="padding:10px 14px;text-align:right;color:{% if m.cpl and m.cpl <= 10 %}#22c55e{% elif m.cpl and m.cpl <= 20 %}#f59e0b{% else %}#ef4444{% endif %};font-weight:700;">{% if m.cpl %}€{{ m.cpl | int }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
 {% elif meta and meta.error is defined %}
   <div class="crm-error">Ошибка Meta: {{ meta.error }}</div>
 {% else %}

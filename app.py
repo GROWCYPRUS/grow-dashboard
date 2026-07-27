@@ -781,6 +781,9 @@ def fetch_attendance():
             except StopIteration:
                 continue
 
+            # Колонка подтверждения (может отсутствовать)
+            conf_idx = next((i for i,h in enumerate(header) if 'подтвержд' in h), None)
+
             registered = 0
             attended   = 0
 
@@ -790,13 +793,18 @@ def fetch_attendance():
                 name_val = str(row[0]).strip()
                 reg_val  = str(row[reg_idx]).strip()  if len(row) > reg_idx  and row[reg_idx]  else ''
                 pres_val = str(row[pres_idx]).strip() if len(row) > pres_idx and row[pres_idx] else ''
+                conf_val = str(row[conf_idx]).strip() if conf_idx and len(row) > conf_idx and row[conf_idx] else ''
 
                 if reg_val in ('Да', 'Возможно'):
                     registered += 1
-                    if pres_val != 'Да':
-                        no_show_count[name_val] += 1
                 if pres_val == 'Да':
                     attended += 1
+
+                # No-show: регистрация=Да И подтверждение=Да (если есть) И не пришёл
+                if reg_val == 'Да':
+                    confirmed = (conf_idx is None) or (conf_val == 'Да')
+                    if confirmed and pres_val != 'Да':
+                        no_show_count[name_val] += 1
 
             pct_of_total = round(attended / total_residents * 100) if total_residents else 0
             pct_of_reg   = round(attended / registered * 100) if registered else 0

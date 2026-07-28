@@ -1472,11 +1472,36 @@ def debug_payments():
         ]
 
         active = [r for r in rows if r.get('Статус', '').strip() == 'Active']
-        for r in active[:10]:
-            nd  = r.get('Следующая дата оплаты', 'НЕТ КОЛОНКИ')
-            od  = r.get('Дней просрочки', 'НЕТ КОЛОНКИ')
-            mem = r.get('Членство', '')
-            lines.append(f'  Членство={mem!r} | Следующая дата={nd!r} | Дней просрочки={od!r}')
+
+        # Подсчёт оплативших
+        WEIGHTS = {'Резидент': 1.0, '1/2 Резидент': 0.5, '1/2 Резидент Women': 0.5}
+        total_paying = total_paid = 0.0
+        pay_col = next((k for k in headers if 'статус оплаты' in k.lower()), None)
+        lines.append(f'Колонка оплаты: {pay_col!r}')
+        lines.append('')
+
+        paid_vals = set()
+        for r in active:
+            mem = r.get('Членство', '').strip()
+            w   = WEIGHTS.get(mem, 0)
+            if w == 0:
+                continue
+            total_paying += w
+            ps = r.get(pay_col or 'Статус оплаты', '').strip() if pay_col else ''
+            paid_vals.add(repr(ps))
+            if ps.upper() == 'OK':
+                total_paid += w
+
+        lines.append(f'Итого платящих (с весами): {total_paying}')
+        lines.append(f'Итого оплативших (OK): {total_paid}')
+        lines.append(f'Уникальные значения статуса оплаты: {paid_vals}')
+        lines.append('')
+        lines.append('=== Все Active резиденты ===')
+        for r in active:
+            mem = r.get('Членство', '').strip()
+            ps  = r.get(pay_col or 'Статус оплаты', '').strip() if pay_col else 'НЕТ КОЛОНКИ'
+            fio = r.get('ФИО', '') or f"{r.get('Фамилия','')} {r.get('Имя','')}".strip()
+            lines.append(f'  {fio} | {mem} | Статус оплаты={ps!r}')
 
         lines += ['', f'Active строк: {len(active)}']
         return '<pre>' + '\n'.join(lines) + '</pre>'

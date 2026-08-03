@@ -46,6 +46,7 @@ ATTENDANCE_SHEETS = {
     'Май':     {'id': '15__VbyyNTHXFWufA6pS_BOj6TtKSD2ERYnUUkm6xeck', 'gid': '411480352'},
     'Июнь':    {'id': '18TCohHjM2GPkn430uc4h0A0AGMRRYS8MUTT65JJiBDI', 'gid': '411480352'},
     'Июль':    {'id': '18uIkcV9pRs7-xvSFdMBc8KRQS5ymkmQ_PTnqFHehrnk', 'gid': '1364402557'},
+    'Август':  {'id': '1EnfBjGoahETfGkWYbXn8giZdNNYioBXatFlPZtGpfTg', 'gid': '411480352'},
 }
 ANNUAL_SHEET_ID = '1P-r6Q7uZ9aovbBFZqV17iHsRqTdT3m3BHxg6_BMY3Y8'
 ANNUAL_GID      = '2092514904'

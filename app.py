@@ -407,9 +407,10 @@ def fetch_monthly_paying():
             except (ValueError, TypeError):
                 continue
 
-        # Строим месяцы 2026 с июля по декабрь (заглушки для пустых)
+        # Строим месяцы 2026: от первого месяца с данными до декабря
+        first_month = min((m for (y, m) in snapshot if y == 2026), default=datetime.now().month)
         result = []
-        for month in range(7, 13):
+        for month in range(first_month, 13):
             count, paid = snapshot.get((2026, month), (0, 0))
             result.append({
                 'label': f"{MONTH_LABELS[month-1]} 26",

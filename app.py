@@ -1400,24 +1400,28 @@ def debug_bdays():
         headers = list(rows[0].keys())
         dr_col  = next((k for k in headers if 'в этом году' in k.lower()), None)
         dm_col  = next((k for k in headers if 'день' in k.lower() and 'месяц' in k.lower()), None)
+        name_col = next((k for k in headers if 'фамили' in k.lower() or 'имя' in k.lower()), 'Фамилия и Имя')
 
         lines = [
             f'Сегодня: {today.date()}',
             f'Период: {week_start.date()} — {week_end.date()}',
             f'Колонки: {headers}',
+            f'name_col: {repr(name_col)}',
             f'dr_col (ДР в этом году): {dr_col}',
             f'dm_col (День.Месяц): {dm_col}',
+            f'Всего строк: {len(rows)}',
             '',
-            '=== Июльские строки ===',
+            '=== Все августовские строки ===',
         ]
 
+        found_in_range = []
         for b in rows:
-            name = b.get('Фамилия и Имя', '').strip()
+            name = b.get(name_col, '').strip()
             raw  = b.get(dr_col, '').strip() if dr_col else ''
             if not raw:
                 raw = b.get(dm_col, '').strip() if dm_col else ''
             month_txt = b.get('Месяц (текст)', '').strip().lower()
-            if 'июл' not in month_txt and '07' not in raw:
+            if 'авг' not in month_txt and '.08' not in raw and '08.' not in raw:
                 continue
             lines.append(f'{name} | raw={repr(raw)} | месяц={month_txt}')
             try:
@@ -1427,8 +1431,13 @@ def debug_bdays():
                 bday  = datetime(today.year, month, day)
                 inrange = week_start.date() <= bday.date() <= week_end.date()
                 lines.append(f'  → day={day} month={month} bday={bday.date()} in_range={inrange}')
+                if inrange:
+                    found_in_range.append(name)
             except Exception as ex:
                 lines.append(f'  → ОШИБКА ПАРСИНГА: {ex}')
+
+        lines += ['', f'=== Попадают в диапазон {week_start.date()}–{week_end.date()} ===']
+        lines += found_in_range if found_in_range else ['(никого)']
 
         return '<pre>' + '\n'.join(lines) + '</pre>'
     except Exception as e:

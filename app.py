@@ -1312,25 +1312,6 @@ def index():
         ig_max = max((m['followers'] for m in ig_monthly), default=1) or 1
         ig_min = min((m['followers'] for m in ig_monthly), default=0)
         pay_dynamic, pay_max = fetch_monthly_paying()
-        # Текущий месяц — берём живые данные из листа статусов (те же, что вверху)
-        if residents and not residents.get('error'):
-            today_now = datetime.now()
-            MONTH_LABELS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
-            cur_label = f"{MONTH_LABELS[today_now.month-1]} {str(today_now.year)[2:]}"
-            cur_entry = {
-                'label': cur_label,
-                'count': int(residents.get('paying', 0)),
-                'paid':  int(residents.get('paid_ok', 0)),
-                'year':  today_now.year,
-                'month': today_now.month,
-            }
-            # Удаляем текущий месяц из истории если есть, добавляем живой
-            pay_dynamic = [m for m in pay_dynamic
-                           if not (m['year'] == today_now.year and m['month'] == today_now.month)]
-            pay_dynamic.append(cur_entry)
-            pay_dynamic.sort(key=lambda m: (m['year'], m['month']))
-            pay_max = max((m['count'] for m in pay_dynamic), default=1)
-            pay_max = max(pay_max, max((m['paid'] for m in pay_dynamic), default=1))
         error       = None
     except Exception as e:
         team, week, crm, residents, attendance, budget, meta, instagram, ig_monthly, ig_max, ig_min, pay_dynamic, pay_max = {}, {}, None, None, None, None, None, None, [], 1, 0, [], 1

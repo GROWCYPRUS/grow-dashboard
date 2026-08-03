@@ -1411,7 +1411,7 @@ def debug_bdays():
             f'dm_col (День.Месяц): {dm_col}',
             f'Всего строк: {len(rows)}',
             '',
-            '=== Все августовские строки ===',
+            '=== Все строки (имя | дата | в диапазоне?) ===',
         ]
 
         found_in_range = []
@@ -1420,23 +1420,23 @@ def debug_bdays():
             raw  = b.get(dr_col, '').strip() if dr_col else ''
             if not raw:
                 raw = b.get(dm_col, '').strip() if dm_col else ''
-            month_txt = b.get('Месяц (текст)', '').strip().lower()
-            if 'авг' not in month_txt and '.08' not in raw and '08.' not in raw:
+            if not raw or '.' not in raw:
+                lines.append(f'{name or "(без имени)"} | нет даты')
                 continue
-            lines.append(f'{name} | raw={repr(raw)} | месяц={month_txt}')
             try:
                 parts = raw.replace('/', '.').split('.')
                 day   = int(parts[0])
                 month = int(parts[1])
                 bday  = datetime(today.year, month, day)
                 inrange = week_start.date() <= bday.date() <= week_end.date()
-                lines.append(f'  → day={day} month={month} bday={bday.date()} in_range={inrange}')
+                marker = ' ✓ ПОПАДАЕТ' if inrange else ''
+                lines.append(f'{name or "(без имени)"} | {raw} → {bday.date()}{marker}')
                 if inrange:
                     found_in_range.append(name)
             except Exception as ex:
-                lines.append(f'  → ОШИБКА ПАРСИНГА: {ex}')
+                lines.append(f'{name or "(без имени)"} | raw={repr(raw)} → ОШИБКА: {ex}')
 
-        lines += ['', f'=== Попадают в диапазон {week_start.date()}–{week_end.date()} ===']
+        lines += ['', f'=== Именинники этой недели ({week_start.date()}–{week_end.date()}) ===']
         lines += found_in_range if found_in_range else ['(никого)']
 
         return '<pre>' + '\n'.join(lines) + '</pre>'

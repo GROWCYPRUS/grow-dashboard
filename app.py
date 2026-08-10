@@ -490,7 +490,7 @@ def fetch_residents():
                 if day == 0 or month == 0:
                     continue
                 bday = datetime(today.year, month, day)
-                if week_start.date() <= bday.date() <= week_end.date():
+                if week_start.date() <= bday.date() < week_end.date():
                     months_ru = ['января','февраля','марта','апреля','мая','июня',
                                  'июля','августа','сентября','октября','ноября','декабря']
                     birthdays_week.append({
@@ -1411,7 +1411,7 @@ def debug_bdays():
                 day   = int(parts[0])
                 month = int(parts[1])
                 bday  = datetime(today.year, month, day)
-                inrange = week_start.date() <= bday.date() <= week_end.date()
+                inrange = week_start.date() <= bday.date() < week_end.date()
                 marker = ' ✓ ПОПАДАЕТ' if inrange else ''
                 lines.append(f'{name or "(без имени)"} | {raw} → {bday.date()}{marker}')
                 if inrange:

@@ -965,10 +965,8 @@ def fetch_meta():
         )
         r.raise_for_status()
         data = r.json().get('data', [])
-        if not data:
-            return {'error': 'Нет данных от Meta'}
 
-        d = data[0]
+        d = data[0] if data else {}
         spend      = float(d.get('spend', 0))
         impressions = int(d.get('impressions', 0))
         clicks     = int(d.get('clicks', 0))
